@@ -15,8 +15,11 @@ class DriftModel(object):
         set of parameters"""
         c = kwargs.get('c', .5)
         gamma = kwargs.get('gamma', 0.)
-        state = kwargs.get('state', None)
-        sdw = gamma * state # state-dependent weighting
+        if gamma == 0.:
+            sdw = 0.
+        else:
+            state = kwargs.get('state', 0.)
+            sdw = gamma * state # state-dependent weighting
 
         se = self.evaluation(options, pars)
         V = se['V']
