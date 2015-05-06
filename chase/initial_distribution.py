@@ -10,4 +10,8 @@ def uniform_initial_distribution(N, *args):
 
 def softmax_initial_distribution(N, pars):
     tau = pars.get('tau', 1.)
-    raise NotImplementedError
+
+    V = np.arange(N) - (N - 1)/2
+    Z = np.exp(-np.abs(V) * (float(tau)))
+    Z = np.matrix(Z / np.sum(Z))
+    return Z

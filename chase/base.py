@@ -5,12 +5,13 @@ from numpy.linalg import matrix_power
 from drift import DriftModel, CPTDriftModel
 from initial_distribution import uniform_initial_distribution, softmax_initial_distribution
 
+
 class CHASEModel(object):
     """CHASEModel implements the basic sequential optional stopping
     sampling model with a specified function for evaluating
     the drift rate."""
 
-    def __init__(self, pars={}, **kwargs):
+    def __init__(self, **kwargs):
         """Instantiate the optional stopping model.
 
         :Arguments:
@@ -22,14 +23,7 @@ class CHASEModel(object):
             * pars:
 
         """
-        self.verbose = kwargs.get('verbose', False)
-        self.pars = pars
-
-        # fixed parameters
-        self.theta = np.float(np.round(pars.get('theta', 5)))     # boundaries
-        self.V = np.round(np.arange(-self.theta, self.theta+(1/2.), 1), 4)
-        self.vi = range(len(self.V))
-        self.m = len(self.V)
+        self.verbose = kwargs.get('verbose', False) # replace with logging
 
         # set function for drift rate
         drift = kwargs.get('drift', 'ev')
@@ -49,14 +43,6 @@ class CHASEModel(object):
         elif startdist is 'softmax':
             self.Z = softmax_initial_distribution
 
-        # state space
-        vi_pqr = []
-        start = np.array([[0, self.m - 1], range(1, self.m - 1)])
-        for outer in start:
-            for inner in outer:
-                vi_pqr.append(inner)
-        self.vi_pqr = np.array(vi_pqr)
-        self.V_pqr = self.V[vi_pqr] # sort state space
 
 
     def __call__(self, options, pars):
@@ -66,9 +52,27 @@ class CHASEModel(object):
         T = np.arange(1., self.max_T + 1)
         N = map(int, np.floor(T))
 
+
+        # threshold and state space
+        self.theta = np.float(np.round(pars.get('theta', 5)))     # boundaries
+        self.V = np.round(np.arange(-self.theta, self.theta+(1/2.), 1), 4)
+        self.vi = range(len(self.V))
+        self.m = len(self.V)
+
+        vi_pqr = []
+        start = np.array([[0, self.m - 1], range(1, self.m - 1)])
+        for outer in start:
+            for inner in outer:
+                vi_pqr.append(inner)
+        self.vi_pqr = np.array(vi_pqr)
+        self.V_pqr = self.V[vi_pqr] # sort state space
+
+
         # evaluate the starting distribution
         Z = self.Z(self.m - 2, pars)
 
+
+        # transition matrix
         tm_pqr, tm = self.transition_matrix_PQR(options, pars)
         Q = tm_pqr[2:,2:]
         I = np.eye(self.m - 2)
@@ -93,7 +97,7 @@ class CHASEModel(object):
         p_resp_t = np.array([np.dot(Z, sr) for sr in SR]).reshape((len(N), 2))
 
         # probability of stopping over time
-        # (see Diederich and Buseymeyer, 2003, eqn. 18)
+        # (see Diederich and Busemeyer, 2003, eqn. 18)
         p_stop_cond = np.array([np.dot(Z, sr)/p_resp for sr in SR]).reshape((len(N), 2))
 
         # expected number of timesteps, conditional on choice
@@ -153,6 +157,20 @@ class CHASEModel(object):
             tm_pqr[row, ind_pqr] = tp[i-1]
 
         return tm_pqr, tm
+
+
+    def loglik(self, value, args):
+        pass
+
+
+
+class CHASEAlternateStoppingModel(CHASEModel):
+
+    """This incorporates an alternate stopping rule"""
+
+    def __init__(self):
+        super(CHASEAlternateStoppingModel, self).__init__()
+
 
 
 
