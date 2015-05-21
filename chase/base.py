@@ -3,7 +3,7 @@ import numpy as np
 from scipy import linalg
 from numpy.linalg import matrix_power
 from drift import DriftModel, CPTDriftModel
-from initial_distribution import uniform_initial_distribution, softmax_initial_distribution
+from initial_distribution import *
 
 
 class CHASEModel(object):
@@ -42,7 +42,8 @@ class CHASEModel(object):
             self.Z = uniform_initial_distribution
         elif startdist is 'softmax':
             self.Z = softmax_initial_distribution
-
+        elif startdist is 'indifferent':
+            self.Z = indifferent_initial_distribution
 
 
     def __call__(self, options, pars):

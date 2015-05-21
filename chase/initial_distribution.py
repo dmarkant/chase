@@ -1,6 +1,13 @@
 import numpy as np
 
 
+def indifferent_initial_distribution(N, *args):
+    """1 at the center state, 0 elsewhere"""
+    Z = np.matrix(np.zeros(N))
+    Z[0,(N-1)/2.] = 1.
+    return Z
+
+
 def uniform_initial_distribution(N, *args):
     """For a given number of states N, return a
     uniform distribution."""

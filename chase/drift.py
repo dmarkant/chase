@@ -13,8 +13,9 @@ class DriftModel(object):
     def __call__(self, options, pars={}, **kwargs):
         """Evaluate the drift rate for a given
         set of parameters"""
-        c = kwargs.get('c', .5)
-        gamma = kwargs.get('gamma', 0.)
+
+        c = pars.get('c', .5)
+        gamma = pars.get('gamma', 0.)
         if gamma == 0.:
             sdw = 0.
         else:
