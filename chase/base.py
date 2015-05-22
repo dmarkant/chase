@@ -4,6 +4,7 @@ from scipy import linalg
 from numpy.linalg import matrix_power
 from drift import DriftModel, CPTDriftModel
 from initial_distribution import *
+from utils import pfix
 
 
 class CHASEModel(object):
@@ -20,9 +21,10 @@ class CHASEModel(object):
                 data containing 'n_samples_A', 'n_samples_B', and 'choice' columns,
                 as well as any further columns to specify grouping variable
 
-            * pars:
+            * verbose:
 
         """
+        self.data = kwargs.get('data', None)
         self.verbose = kwargs.get('verbose', False) # replace with logging
 
         # set function for drift rate
@@ -160,8 +162,25 @@ class CHASEModel(object):
         return tm_pqr, tm
 
 
-    def loglik(self, value, args):
-        pass
+    def nloglik(self, problems, data, pars):
+        """For a single set of parameters, evaluate the
+        log-likelihood of observed data set."""
+
+        results = {pid: self.__call__(problems[pid], pars) \
+                   for pid in data['problem'].unique()}
+
+        nllh = []
+        for i, obs in data.iterrows():
+
+            problem, samplesize, choice = obs['problem'], obs['samplesize'], obs['choice']
+            pred = results[problem]
+            nllh.append(-1 * (np.log(pfix(pred['p_resp'][choice])) + \
+                        np.log(pfix(pred['p_stop_cond'][samplesize - 1, choice]))))
+
+        return np.sum(nllh)
+
+
+
 
 
 
