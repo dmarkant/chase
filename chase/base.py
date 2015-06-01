@@ -85,6 +85,9 @@ class CHASEModel(object):
 
 
         # min-steps
+        if 'min_steps' in pars:
+            Z = Z * matrix_power(Q, pars.get('min_steps') - 1)
+            Z = np.matrix(Z / np.sum(Z))
 
         S = [matrix_power(Q, 0)]
         for n in N[1:]:
@@ -170,6 +173,11 @@ class CHASEModel(object):
 
             problem, samplesize, choice = obs['problem'], obs['samplesize'], obs['choice']
             pred = results[problem]
+
+            # if there is a minimum sample size,
+            # make correction to observed sample
+            # size here
+
             nllh.append(-1 * (np.log(pfix(pred['p_resp'][choice])) + \
                         np.log(pfix(pred['p_stop_cond'][samplesize - 1, choice]))))
 
@@ -282,6 +290,10 @@ class CHASEAlternateStoppingModel(CHASEModel):
         for i, obs in data.iterrows():
 
             problem, samplesize, choice = obs['problem'], obs['samplesize'], obs['choice']
+
+            # if minimum sample size, make correction to
+            # observed sample size here
+
             pred = results[problem]
             p_choice = pred['p_resp_t'][samplesize][choice]
             nllh.append(-1 * (np.log(pfix(p_choice)) + np.log(pfix(p_stop[samplesize]))))

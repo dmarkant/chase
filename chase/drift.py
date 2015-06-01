@@ -1,5 +1,5 @@
 import numpy as np
-import cogmod.cpt as cpt
+import cpt
 
 
 class DriftModel(object):
@@ -70,7 +70,6 @@ class CPTDriftModel(DriftModel):
     def evaluation(self, options, pars):
 
         # decision weights
-        #weights = np.array([cpt.rank_dependent_weights(option, pars) for i, option in enumerate(options)])
         weights = np.array([cpt.pweight_prelec(option, pars) for i, option in enumerate(options)])
 
         # value weights
