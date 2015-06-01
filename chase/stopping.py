@@ -1,3 +1,5 @@
+import numpy as np
+from scipy.stats import norm
 """Alternate stopping rules"""
 
 
@@ -7,7 +9,7 @@ class TruncatedNormal(object):
         pass
 
 
-    def nloglik(self, pars):
+    def dist(self, pars):
 
         mu = pars.get('mu', 10)
         sc = pars.get('sc', 5)

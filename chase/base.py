@@ -190,7 +190,7 @@ class CHASEAlternateStoppingModel(CHASEModel):
     """This incorporates an alternate stopping rule"""
 
     def __init__(self, **kwargs):
-        super(CHASEAlternateStoppingModel, self).__init__()
+        super(CHASEAlternateStoppingModel, self).__init__(**kwargs)
 
         stoprule = kwargs.get('stoprule', None)
         if stoprule is None:
@@ -223,10 +223,10 @@ class CHASEAlternateStoppingModel(CHASEModel):
 
 
         # evaluate the starting distribution
-        Z = self.Z(self.m - 2, pars)
+        Z = self.Z(self.m, pars)
 
         # transition matrix
-        tm = self.transition_matrix_reflecting(pars)
+        tm = self.transition_matrix_reflecting(options, pars)
 
         # min-steps
         if 'min_steps' in pars:
@@ -248,7 +248,7 @@ class CHASEAlternateStoppingModel(CHASEModel):
                 'p_resp_t': p_LH}
 
 
-    def transition_matrix_reflecting(self, pars):
+    def transition_matrix_reflecting(self, options, pars):
         """
         Transition matrix with reflecting boundaries.
 
@@ -263,9 +263,9 @@ class CHASEAlternateStoppingModel(CHASEModel):
         # transition probabilities for each state. Otherwise,
         # use same transition probabilities for everything
         if gamma == 0.:
-            tp = np.tile(transition_probs(pars, self.tau), (self.m, 1))
+            tp = np.tile(self.transition_probs(options, pars), (self.m, 1))
         else:
-            tp = np.array([transition_probs(pars, self.tau, state=i) for i in range(self.m)])
+            tp = np.array([self.transition_probs(options, pars, state=i) for i in range(self.m)])
 
         tm         = np.zeros((self.m, self.m), float)
         tm[0,:2]   = [tp[0,:2].sum(), tp[0,2]]
@@ -284,7 +284,7 @@ class CHASEAlternateStoppingModel(CHASEModel):
                    for pid in data['problem'].unique()}
 
         # stopping rule distribution
-        p_stop = self.stoprule.nloglik(pars)
+        p_stop = self.stoprule.dist(pars)
 
         nllh = []
         for i, obs in data.iterrows():
