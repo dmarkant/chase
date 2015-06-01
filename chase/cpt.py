@@ -49,9 +49,7 @@ def pweight_prelec(option, pars):
     if len(gains) > 0:
         gaindf = pd.DataFrame(np.array(gains), columns=['id', 'outcome', 'pr', 'w']).sort('outcome')
         w = w_gain
-        for i in range(len(gaindf)):
-            row = gaindf.iloc[i]
-
+        for i, row in gaindf.iterrows():
             if i == (len(gaindf) - 1):
                 row['w'] = w(row['pr'])
             else:
@@ -60,9 +58,7 @@ def pweight_prelec(option, pars):
     if len(losses) > 0:
         lossdf = pd.DataFrame(np.array(losses), columns=['id', 'outcome', 'pr', 'w']).sort('outcome')
         w = w_loss
-        for i in range(len(lossdf)):
-            row = lossdf.iloc[i]
-
+        for i, row in lossdf.iterrows():
             if i == 0:
                 row['w'] = w(row['pr'])
             else:
