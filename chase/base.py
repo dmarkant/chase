@@ -3,6 +3,7 @@ import numpy as np
 from scipy import linalg
 from numpy.linalg import matrix_power
 from drift import DriftModel, CPTDriftModel
+from stopping import TruncatedNormal
 from initial_distribution import *
 from utils import pfix
 
@@ -76,7 +77,7 @@ class CHASEModel(object):
 
 
         # transition matrix
-        tm_pqr, tm = self.transition_matrix_PQR(options, pars)
+        tm_pqr = self.transition_matrix_PQR(options, pars)
         Q = tm_pqr[2:,2:]
         I = np.eye(self.m - 2)
         R = np.matrix(tm_pqr[2:,:2])
@@ -126,11 +127,6 @@ class CHASEModel(object):
         return [p_down, p_stay, p_up]
 
 
-    def transition_matrix(self, pars):
-        """Transition matrix."""
-        raise NotImplementedError
-
-
     def transition_matrix_PQR(self, options, pars):
         gamma = pars.get('gamma', 0.)
 
@@ -144,7 +140,7 @@ class CHASEModel(object):
         if gamma == 0.:
             tp = np.tile(self.transition_probs(options, pars), (self.m - 2, 1))
         else:
-            tp = np.array([self.transition_probs(options, pars, state=i*self.dv) for i in range(1, self.m - 1)])
+            tp = np.array([self.transition_probs(options, pars, state=i) for i in range(1, self.m - 1)])
 
         tm         = np.zeros((self.m, self.m), float)
         tm[0,0] = 1.
@@ -159,7 +155,7 @@ class CHASEModel(object):
             ind_pqr = np.array([np.where(V_pqr==self.V[i-1])[0][0], np.where(V_pqr==self.V[i])[0][0], np.where(V_pqr==self.V[i+1])[0][0]])
             tm_pqr[row, ind_pqr] = tp[i-1]
 
-        return tm_pqr, tm
+        return tm_pqr
 
 
     def nloglik(self, problems, data, pars):
@@ -181,16 +177,116 @@ class CHASEModel(object):
 
 
 
-
-
-
 class CHASEAlternateStoppingModel(CHASEModel):
 
     """This incorporates an alternate stopping rule"""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super(CHASEAlternateStoppingModel, self).__init__()
 
+        stoprule = kwargs.get('stoprule', None)
+        if stoprule is None:
+            print 'No stopping rule specified!'
+        elif stoprule is 'truncatednormal':
+            self.stoprule = TruncatedNormal()
+
+
+    def __call__(self, options, pars):
+        """Evaluate the model for a given set of parameters."""
+
+        self.max_T = pars.get('max_T', 100)   # range of timesteps to evaluate over
+        T = np.arange(1., self.max_T + 1)
+        N = map(int, np.floor(T))
+
+
+        # threshold and state space
+        self.theta = np.float(np.round(pars.get('theta', 5)))     # boundaries
+        self.V = np.round(np.arange(-self.theta, self.theta+(1/2.), 1), 4)
+        self.vi = range(len(self.V))
+        self.m = len(self.V)
+
+        vi_pqr = []
+        start = np.array([[0, self.m - 1], range(1, self.m - 1)])
+        for outer in start:
+            for inner in outer:
+                vi_pqr.append(inner)
+        self.vi_pqr = np.array(vi_pqr)
+        self.V_pqr = self.V[vi_pqr] # sort state space
+
+
+        # evaluate the starting distribution
+        Z = self.Z(self.m - 2, pars)
+
+        # transition matrix
+        tm = self.transition_matrix_reflecting(pars)
+
+        # min-steps
+        if 'min_steps' in pars:
+            Z = Z * matrix_power(tm, pars.get('min_steps') - 1)
+            assert np.round(np.sum(Z), 5)==1.
+
+        M = [Z * matrix_power(tm, 0)]
+        for n in N[1:]:
+            M.append( np.dot(M[-1], tm) )
+        p_state_t = np.array(M).reshape((len(N), self.m))
+
+        p_0 = p_state_t[:,self.theta]
+        p_L = p_state_t[:,:self.theta].sum(axis=1) + p_0 * 0.5
+        p_H = p_state_t[:,(1+self.theta):].sum(axis=1) + p_0 * 0.5
+        p_LH = np.transpose((p_L, p_H))
+
+        return {'T': T,
+                'states_t': p_state_t,
+                'p_resp_t': p_LH}
+
+
+    def transition_matrix_reflecting(self, pars):
+        """
+        Transition matrix with reflecting boundaries.
+
+        V -- discrete state space
+        dv -- step size
+        gamma -- state-dependent weight
+        """
+        p_stay = pars.get('p_stay', .5)
+        gamma = pars.get('gamma', 0.)
+
+        # if there is state-dependent weighting, compute
+        # transition probabilities for each state. Otherwise,
+        # use same transition probabilities for everything
+        if gamma == 0.:
+            tp = np.tile(transition_probs(pars, self.tau), (self.m, 1))
+        else:
+            tp = np.array([transition_probs(pars, self.tau, state=i) for i in range(self.m)])
+
+        tm         = np.zeros((self.m, self.m), float)
+        tm[0,:2]   = [tp[0,:2].sum(), tp[0,2]]
+        tm[-1,-2:] = [tp[-1,-3], tp[-1,-2:].sum()]
+        for i in range(1, self.m - 1):
+            tm[i,i-1:i+2] = tp[i-1]
+        return tm
+
+
+    def nloglik(self, problems, data, pars):
+        """For a single set of parameters, evaluate the
+        log-likelihood of observed data set."""
+
+        # random walk prediction
+        results = {pid: self.__call__(problems[pid], pars) \
+                   for pid in data['problem'].unique()}
+
+        # stopping rule distribution
+        p_stop = self.stoprule.nloglik(pars)
+
+        nllh = []
+        for i, obs in data.iterrows():
+
+            problem, samplesize, choice = obs['problem'], obs['samplesize'], obs['choice']
+            pred = results[problem]
+            p_choice = pred['p_resp_t'][samplesize][choice]
+            nllh.append(-1 * (np.log(pfix(p_choice)) + np.log(pfix(p_stop[samplesize]))))
+
+        return np.sum(nllh)
 
 
 
