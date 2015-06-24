@@ -1,4 +1,5 @@
 ,sim_id,k,N,nllh,bic
 0,"hau_exp2(p_stay,tau,theta|delta=0.5,minsamplesize=2)",3.0,234.0,1245.45156393,2507.26909121
-1,"hau_exp2(p_stay,prelec_gamma,tau,theta|delta=0.5,minsamplesize=2)",4.0,234.0,1245.3043483,2512.42998105
-2,"hau_exp2(p_stay,prelec_elevation,prelec_gamma,tau,theta|delta=0.5,minsamplesize=2)",5.0,234.0,1239.36878967,2506.01418491
+1,"hau_exp2(p_stay,prelec_elevation,prelec_gamma,tau,theta|delta=0.5,minsamplesize=2)",5.0,234.0,1239.19429183,2505.66518923
+2,"hau_exp2(p_stay,pow_gain,tau,theta,w_loss|delta=0.5,minsamplesize=2)",5.0,234.0,1239.91751485,2507.11163529
+3,"hau_exp2(p_stay,pow_gain,prelec_elevation,prelec_gamma,tau,theta,w_loss|delta=0.5,minsamplesize=2)",7.0,234.0,1239.18599348,2516.55923476
