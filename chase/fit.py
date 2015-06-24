@@ -8,7 +8,7 @@ from random import uniform
 from scipy.optimize import minimize, fmin
 
 
-def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir=''):
+def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='.'):
     """Use maximum likelihood to fit CHASE model"""
     sim_id = sim_id_str(name, fixed, fitting)
     print sim_id
@@ -59,7 +59,7 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
             fitdf.ix[i,p] = f['x'][v]
 
     # save the table
-    fitdf.to_csv('%s%s.csv' % (outdir, sim_id))
+    fitdf.to_csv('%s/%s.csv' % (outdir, sim_id))
 
     return fitdf
 
