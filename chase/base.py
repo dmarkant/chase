@@ -63,6 +63,7 @@ class CHASEModel(object):
         self.vi = range(len(self.V))
         self.m = len(self.V)
 
+
         vi_pqr = []
         start = np.array([[0, self.m - 1], range(1, self.m - 1)])
         for outer in start:
@@ -130,7 +131,7 @@ class CHASEModel(object):
         return [p_down, p_stay, p_up]
 
 
-    def transition_matrix_PQR(self, options, pars):
+    def transition_matrix_PQR(self, options, pars, full=False):
         gamma = pars.get('gamma', 0.)
 
         tm_pqr = np.zeros((self.m, self.m), float)
@@ -158,7 +159,10 @@ class CHASEModel(object):
             ind_pqr = np.array([np.where(V_pqr==self.V[i-1])[0][0], np.where(V_pqr==self.V[i])[0][0], np.where(V_pqr==self.V[i+1])[0][0]])
             tm_pqr[row, ind_pqr] = tp[i-1]
 
-        return tm_pqr
+        if full:
+            return tm
+        else:
+            return tm_pqr
 
 
     def nloglik(self, problems, data, pars):
@@ -195,6 +199,47 @@ class CHASEModel(object):
             for v, p in zip(value, fitting.keys()):
                 pars[p] = v
             return self.nloglik(problems, data, pars)
+
+
+    def sample_trajectories(self, options, pars):
+        N = pars.get('N', 100)
+
+        # threshold and state space
+        self.theta = np.float(np.round(pars.get('theta', 5)))     # boundaries
+        self.V = np.round(np.arange(-self.theta, self.theta+(1/2.), 1), 4)
+        self.vi = range(len(self.V))
+        self.m = len(self.V)
+        vi_pqr = []
+        start = np.array([[0, self.m - 1], range(1, self.m - 1)])
+        for outer in start:
+            for inner in outer:
+                vi_pqr.append(inner)
+        self.vi_pqr = np.array(vi_pqr)
+        self.V_pqr = self.V[vi_pqr] # sort state space
+
+
+        # evaluate the starting distribution
+        Z = self.Z(self.m - 2, pars)
+
+        # full transition matrix
+        tm = self.transition_matrix_PQR(options, pars, full=True)
+
+        traj = []
+        for i in range(N):
+            done = False
+
+            # sample starting position
+            X = [sample_from_discrete(np.array(Z[0,:])[0]) + 1]
+            while not done:
+                X.append(sample_from_discrete(tm[X[-1]]))
+                if X[-1] in [0, self.m - 1]:
+                    done = True
+                    traj.append({'trajectory': X,
+                                 'samplesize': len(X) - 1,
+                                 'choice': 0 if X[-1]==0 else 1
+                                 })
+
+        return traj
 
 
 
