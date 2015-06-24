@@ -6,7 +6,7 @@ from itertools import product
 from copy import deepcopy
 from random import uniform
 from scipy.optimize import minimize, fmin
-
+from collections import OrderedDict
 
 def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='.'):
     """Use maximum likelihood to fit CHASE model"""
@@ -15,12 +15,15 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
     checkpath(outdir)
 
     cols = ['iteration', 'success', 'nllh', 'k', 'N', 'bic']
-    for p in fitting.keys():
-        cols.append(p)
 
     theta_min, theta_max = fitting['theta']
     thetas = filter(lambda k: k.count('theta') > 0, fitting.keys())
     theta_prod = map(list, list(product(range(theta_min, theta_max + 1), repeat=len(thetas))))
+    cols += thetas
+
+    rest = filter(lambda p: p.count('theta')==0, fitting.keys())
+    rest.sort()
+    cols += rest
 
 
     # determine number of parameters and observations
@@ -46,8 +49,13 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
         for th in thetas:
             pars[th] = row[th]
 
-        pars['fitting'] = {p: fitting[p] for p in fitting if p.count('theta')==0}
-        init = [uniform(fitting[p][0], fitting[p][1]) for p in pars['fitting']]
+        pars['fitting'] = OrderedDict([(p, fitting[p]) for p in rest])
+        init = []
+        for p in rest:
+            if len(fitting[p]) == 3:
+                init.append(fitting[p][2])
+            else:
+                init.append(uniform(fitting[p][0], fitting[p][1]))
 
         f = minimize(model.nloglik_opt, init, (problems, data, pars,),
                      method='Nelder-Mead', options={'ftol': .0001})

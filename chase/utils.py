@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
 
-
 def checkpath(dir):
     head, tail = os.path.split(dir)
     if head!="" and head!="~" and not os.path.exists(head): checkpath(head)
@@ -38,14 +37,13 @@ def unpack(value, args):
     for i, k in enumerate(fitting):
         pars[k] = value[i]
         if verbose: print '  %s=%s' % (k, pars[k])
-
     return pars, fitting, verbose
 
 
 def outside_bounds(value, fitting):
     outside = False
-    for v, p in zip(value, fitting.keys()):
-        v_min, v_max = fitting[p]
+    for v, p in zip(value, fitting):
+        v_min, v_max = fitting[p][:2]
         if v < v_min or v > v_max:
             outside = True
     return outside
@@ -85,3 +83,8 @@ def plot_result(result):
 
     plt.tight_layout()
     plt.show()
+
+
+def sample_from_discrete(cp):
+    r = np.random.random()
+    return np.where(r < np.cumsum(cp))[0][0]
