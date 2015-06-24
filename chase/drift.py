@@ -72,20 +72,37 @@ class CPTDriftModel(DriftModel):
         # decision weights
         weights = np.array([cpt.pweight_prelec(option, pars) for i, option in enumerate(options)])
 
+        #print 'weights:'
+        #print weights
+
         # value weights
         values = np.array([cpt.value_fnc(option[:,0], pars) for option in options])
+
+        #print 'values:'
+        #print values
 
         # expected value of each outcome
         v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
 
+        #print 'v:'
+        #print v
+
         # expected variance of each option
         evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
+
+        #print 'evar:'
+        #print evar
 
         # expected value of each option
         V = np.sum(v, axis=1)
 
+        #print 'V:'
+        #print V
+
         # combine variances (ensure > 0)
         sigma2 = np.max([np.sum(evar), 1e-10])
+
+        #print V, sigma2
 
         return {'weights': weights,
                 'values': values,

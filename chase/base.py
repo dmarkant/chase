@@ -3,9 +3,9 @@ import numpy as np
 from scipy import linalg
 from numpy.linalg import matrix_power
 from drift import DriftModel, CPTDriftModel
-from stopping import TruncatedNormal
 from initial_distribution import *
-from utils import pfix
+from stopping import TruncatedNormal
+from utils import *
 
 
 class CHASEModel(object):
@@ -85,8 +85,8 @@ class CHASEModel(object):
 
 
         # min-steps
-        if 'min_steps' in pars:
-            Z = Z * matrix_power(Q, pars.get('min_steps') - 1)
+        if 'minsamplesize' in pars:
+            Z = Z * matrix_power(Q, pars.get('minsamplesize') - 1)
             Z = np.matrix(Z / np.sum(Z))
 
         S = [matrix_power(Q, 0)]
@@ -165,23 +165,36 @@ class CHASEModel(object):
         """For a single set of parameters, evaluate the
         log-likelihood of observed data set."""
 
-        results = {pid: self.__call__(problems[pid], pars) \
-                   for pid in data['problem'].unique()}
 
         nllh = []
-        for i, obs in data.iterrows():
+        for pid in data.problem.unique():
 
-            problem, samplesize, choice = obs['problem'], obs['samplesize'], obs['choice']
-            pred = results[problem]
+            probdata = data[data.problem==pid]
+            pars['max_T'] = probdata.samplesize.max() + 1
+            results = self.__call__(problems[pid], pars)
 
-            # if there is a minimum sample size,
-            # make correction to observed sample
-            # size here
+            ss = np.array(probdata.samplesize.values, int) - 1
+            if 'minsamplesize' in pars:
+                ss = ss - (pars['minsamplesize'] - 1)
 
-            nllh.append(-1 * (np.log(pfix(pred['p_resp'][choice])) + \
-                        np.log(pfix(pred['p_stop_cond'][samplesize - 1, choice]))))
+            choices = np.array(probdata.choice.values, int)
+
+            nllh.append(-1 * np.sum((np.log(pfixa(results['p_resp'][choices])) + \
+                        np.log(pfixa(results['p_stop_cond'][ss, choices])))))
 
         return np.sum(nllh)
+
+
+    def nloglik_opt(self, value, problems, data, pars):
+        pars, fitting, verbose = unpack(value, pars)
+
+        # check if the parameters are within allowed range
+        if outside_bounds(value, fitting):
+            return np.inf
+        else:
+            for v, p in zip(value, fitting.keys()):
+                pars[p] = v
+            return self.nloglik(problems, data, pars)
 
 
 
@@ -201,9 +214,7 @@ class CHASEAlternateStoppingModel(CHASEModel):
 
     def __call__(self, options, pars):
         """Evaluate the model for a given set of parameters."""
-
-        self.max_T = pars.get('max_T', 100)   # range of timesteps to evaluate over
-        T = np.arange(1., self.max_T + 1)
+        T = np.arange(1., pars.get('max_T', 100) + 1) # range of sample sizes
         N = map(int, np.floor(T))
 
 
@@ -275,7 +286,7 @@ class CHASEAlternateStoppingModel(CHASEModel):
         return tm
 
 
-    def nloglik(self, problems, data, pars):
+    def nloglik(self, value, problems, data, pars):
         """For a single set of parameters, evaluate the
         log-likelihood of observed data set."""
 
@@ -299,6 +310,7 @@ class CHASEAlternateStoppingModel(CHASEModel):
             nllh.append(-1 * (np.log(pfix(p_choice)) + np.log(pfix(p_stop[samplesize]))))
 
         return np.sum(nllh)
+
 
 
 

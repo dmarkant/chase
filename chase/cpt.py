@@ -20,25 +20,23 @@ def value_fnc(outcomes, pars):
 def pweight_prelec(option, pars):
     prelec_elevation = pars.get('prelec_elevation', 1.)
     prelec_gamma = pars.get('prelec_gamma', 1.)
-    prelec_elevation_loss = pars.get('prelec_elevation_loss', prelec_elevation)
-    prelec_gamma_loss = pars.get('prelec_gamma_loss', prelec_gamma)
     gaindf = None
     lossdf = None
 
-    def w_gain(p):
+    def w(p):
         return np.exp(-prelec_elevation * ((-np.log(p)) ** prelec_gamma))
-
-    def w_loss(p):
-        return np.exp(-prelec_elevation_loss * ((-np.log(p)) ** prelec_gamma_loss))
 
     gains = []
     losses = []
+
+    # separate gains and losses
     for i, opt in enumerate(option):
         if opt[0] > 0:
             gains.append([i, opt[0], opt[1], np.nan])
         elif opt[0] < 0:
             losses.append([i, opt[0], opt[1], np.nan])
 
+    # if there are zero outcomes but no gains, group with losses
     for i, opt in enumerate(option):
         if opt[0] == 0:
             if len(gains) == 0:
@@ -46,23 +44,29 @@ def pweight_prelec(option, pars):
             else:
                 gains.append([i, opt[0], opt[1], np.nan])
 
+
     if len(gains) > 0:
-        gaindf = pd.DataFrame(np.array(gains), columns=['id', 'outcome', 'pr', 'w']).sort('outcome')
-        w = w_gain
+        gaindf = pd.DataFrame(np.array(gains), columns=['id', 'outcome', 'pr', 'w']).sort('outcome').reset_index()
+
         for i, row in gaindf.iterrows():
+
             if i == (len(gaindf) - 1):
-                row['w'] = w(row['pr'])
+                v = w(row['pr'])
+                gaindf.ix[i, 'w'] = v
             else:
-                row['w'] = w(gaindf.iloc[i:]['pr'].sum()) - w(gaindf.iloc[(i+1):]['pr'].sum())
+                v = w(gaindf.iloc[i:]['pr'].sum()) - w(gaindf.iloc[(i+1):]['pr'].sum())
+                gaindf.ix[i,'w'] = v
+
 
     if len(losses) > 0:
-        lossdf = pd.DataFrame(np.array(losses), columns=['id', 'outcome', 'pr', 'w']).sort('outcome')
-        w = w_loss
+        lossdf = pd.DataFrame(np.array(losses), columns=['id', 'outcome', 'pr', 'w']).sort('outcome').reset_index()
+
         for i, row in lossdf.iterrows():
             if i == 0:
                 row['w'] = w(row['pr'])
+                lossdf.ix[i,'w'] = w(row['pr'])
             else:
-                row['w'] = w(lossdf.iloc[:(i+1)]['pr'].sum()) - w(lossdf.iloc[:i]['pr'].sum())
+                lossdf.ix[i,'w'] = w(lossdf.iloc[:(i+1)]['pr'].sum()) - w(lossdf.iloc[:i]['pr'].sum())
 
 
     weights = np.zeros(len(option))
