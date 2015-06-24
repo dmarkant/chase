@@ -1,0 +1,4 @@
+,sim_id,k,N,nllh,bic
+0,"hau_exp1(p_stay,tau,theta|delta=0.5,minsamplesize=2)",3.0,230.0,972.113828206,1960.54189434
+1,"hau_exp1(p_stay,prelec_gamma,tau,theta|delta=0.5,minsamplesize=2)",4.0,230.0,957.985474733,1937.7232667
+2,"hau_exp1(p_stay,prelec_elevation,prelec_gamma,tau,theta|delta=0.5,minsamplesize=2)",5.0,230.0,944.340507564,1915.87141167

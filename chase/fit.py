@@ -64,13 +64,13 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
     return fitdf
 
 
-def load_results(name, fixed={}, fitting={}, outdir=''):
+def load_results(name, fixed={}, fitting={}, outdir='.'):
     sim_id = sim_id_str(name, fixed, fitting)
-    fitdf = pd.read_csv('%s%s.csv' % (outdir, sim_id))
+    fitdf = pd.read_csv('%s/%s.csv' % (outdir, sim_id))
     return fitdf
 
 
-def best_result(name, fixed={}, fitting={}, outdir='', nopars=False):
+def best_result(name, fixed={}, fitting={}, outdir='.', nopars=False):
     sim_id = sim_id_str(name, fixed, fitting)
     fitdf = load_results(name, fixed=fixed, fitting=fitting, outdir=outdir)
     fitdf = fitdf[fitdf.success==True].sort('nllh').reset_index()
@@ -82,7 +82,7 @@ def best_result(name, fixed={}, fitting={}, outdir='', nopars=False):
         return fitdf.ix[0]
 
 
-def predict_from_result(model, problems, name, fixed={}, fitting={}, outdir=''):
+def predict_from_result(model, problems, name, fixed={}, fitting={}, outdir='.'):
 
     # load the best result
     best = best_result(name, fixed, fitting, outdir=outdir)
