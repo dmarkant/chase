@@ -42,7 +42,7 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
     # iterate through
     for i, row in fitdf.iterrows():
 
-        print '%s/%s' % (i, fitdf.shape[0])
+        #print '%s/%s' % (i, fitdf.shape[0])
 
         # update pars with current values of theta
         pars = deepcopy(fixed)
