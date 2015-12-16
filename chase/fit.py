@@ -16,10 +16,15 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
 
     cols = ['iteration', 'success', 'nllh', 'k', 'N', 'bic']
 
-    theta_min, theta_max = fitting['theta']
     thetas = filter(lambda k: k.count('theta') > 0, fitting.keys())
-    theta_prod = map(list, list(product(range(theta_min, theta_max + 1), repeat=len(thetas))))
-    cols += thetas
+
+    if len(thetas) > 0:
+        theta_min, theta_max = fitting['theta']
+        theta_prod = map(list, list(product(range(theta_min, theta_max + 1), repeat=len(thetas))))
+        cols += thetas
+    else:
+        theta_prod = [[fixed['theta']]]
+        cols += ['theta']
 
     rest = filter(lambda p: p.count('theta')==0, fitting.keys())
     rest.sort()
@@ -42,7 +47,8 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
     # iterate through
     for i, row in fitdf.iterrows():
 
-        #print '%s/%s' % (i, fitdf.shape[0])
+        print '%s/%s' % (i, fitdf.shape[0])
+        print 'theta:', row['theta']
 
         # update pars with current values of theta
         pars = deepcopy(fixed)
@@ -50,6 +56,7 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
             pars[th] = row[th]
 
         pars['fitting'] = OrderedDict([(p, fitting[p]) for p in rest])
+
         init = []
         for p in rest:
             if len(fitting[p]) == 3:
@@ -58,13 +65,15 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
                 init.append(uniform(fitting[p][0], fitting[p][1]))
 
         f = minimize(model.nloglik_opt, init, (problems, data, pars,),
-                     method='Nelder-Mead', options={'ftol': .0001})
+                     method='Nelder-Mead', options={'ftol': .001})
 
         fitdf.ix[i,'success'] = f['success']
         fitdf.ix[i,'nllh'] = f['fun']
         fitdf.ix[i,'bic'] = bic(f['fun'], k, N)
         for v, p in enumerate(pars['fitting'].keys()):
             fitdf.ix[i,p] = f['x'][v]
+
+        print fitdf.ix[i]
 
     # save the table
     fitdf.to_csv('%s/%s.csv' % (outdir, sim_id))
@@ -82,9 +91,11 @@ def best_result(name, fixed={}, fitting={}, outdir='.', nopars=False):
     sim_id = sim_id_str(name, fixed, fitting)
     fitdf = load_results(name, fixed=fixed, fitting=fitting, outdir=outdir)
     fitdf = fitdf[fitdf.success==True].sort('nllh').reset_index()
+    fitdf['sim_id'] = sim_id
+    if fitdf.shape[0] == 0:
+        return pd.Series({'sim_id': sim_id})
     if nopars:
-        r = fitdf.ix[0,['nllh', 'k', 'N', 'bic']]
-        r['sim_id'] = sim_id
+        r = fitdf.ix[0,['sim_id', 'nllh', 'k', 'N', 'bic']]
         return r
     else:
         return fitdf.ix[0]
@@ -109,5 +120,13 @@ def predict_from_result(model, problems, name, fixed={}, fitting={}, outdir='.')
 
 
 def pred_quantiles(pred, quantiles=[.25, .5, .75]):
-    dist = np.sum([pred[0]['p_resp'][i]*pred[0]['p_stop_cond'][:,i] for i in [0,1]], axis=0)
+    dist = np.sum([pred['p_resp'][i]*pred['p_stop_cond'][:,i] for i in [0,1]], axis=0)
     return np.array([np.sum(np.cumsum(dist) < q) for q in quantiles])
+
+
+def pred_quantiles_all(pred, quantiles=[.25, .5, .75]):
+    arr = []
+    for probid in pred.keys():
+        dist = np.sum([pred[probid]['p_resp'][i]*pred[probid]['p_stop_cond'][:,i] for i in [0,1]], axis=0)
+        arr.append(np.array([np.sum(np.cumsum(dist) < q) for q in quantiles]))
+    return np.mean(arr, axis=0)
