@@ -5,9 +5,6 @@ from scipy.stats import norm, geom
 
 class TruncatedNormal(object):
 
-    def __init__(self):
-        pass
-
     def dist(self, pars):
 
         mu = pars.get('mu', 10)
@@ -21,9 +18,6 @@ class TruncatedNormal(object):
 
 
 class Geometric(object):
-
-    def __init__(self):
-        pass
 
     def dist(self, pars):
         t = np.arange(1, 300)

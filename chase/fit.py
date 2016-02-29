@@ -8,16 +8,17 @@ from random import uniform
 from scipy.optimize import minimize, fmin
 from collections import OrderedDict
 
-def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='.'):
+
+def fit_mlh(model, problems, data, name,
+            fixed={}, fitting={}, niter=5,
+            outdir='.', method='Nelder-Mead', save=True, quiet=False):
     """Use maximum likelihood to fit CHASE model"""
     sim_id = sim_id_str(name, fixed, fitting)
-    print sim_id
     checkpath(outdir)
 
     cols = ['iteration', 'success', 'nllh', 'k', 'N', 'bic']
 
     thetas = filter(lambda k: k.count('theta') > 0, fitting.keys())
-
     if len(thetas) > 0:
         theta_min, theta_max = fitting['theta']
         theta_prod = map(list, list(product(range(theta_min, theta_max + 1), repeat=len(thetas))))
@@ -47,9 +48,6 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
     # iterate through
     for i, row in fitdf.iterrows():
 
-        print '%s/%s' % (i, fitdf.shape[0])
-        print 'theta:', row['theta']
-
         # update pars with current values of theta
         pars = deepcopy(fixed)
         for th in thetas:
@@ -59,13 +57,15 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
 
         init = []
         for p in rest:
-            if len(fitting[p]) == 3:
+            if p=='mu':
+                init.append(data.samplesize.mean())
+            elif len(fitting[p]) == 3:
                 init.append(fitting[p][2])
             else:
                 init.append(uniform(fitting[p][0], fitting[p][1]))
 
         f = minimize(model.nloglik_opt, init, (problems, data, pars,),
-                     method='Nelder-Mead', options={'ftol': .001})
+                     method=method, options={'ftol': .001})
 
         fitdf.ix[i,'success'] = f['success']
         fitdf.ix[i,'nllh'] = f['fun']
@@ -73,18 +73,24 @@ def fit_mlh(model, problems, data, name, fixed={}, fitting={}, niter=5, outdir='
         for v, p in enumerate(pars['fitting'].keys()):
             fitdf.ix[i,p] = f['x'][v]
 
-        print fitdf.ix[i]
+        if not quiet:
+            print sim_id
+            print '%s/%s' % (i, fitdf.shape[0])
+            print '%s: %s' % (thetas, row[thetas].values)
+            print fitdf.ix[i]
 
     # save the table
-    fitdf.to_csv('%s/%s.csv' % (outdir, sim_id))
-
+    if save: fitdf.to_csv('%s/%s.csv' % (outdir, sim_id))
     return fitdf
 
 
 def load_results(name, fixed={}, fitting={}, outdir='.'):
     sim_id = sim_id_str(name, fixed, fitting)
-    fitdf = pd.read_csv('%s/%s.csv' % (outdir, sim_id))
-    return fitdf
+    pth = '%s/%s.csv' % (outdir, sim_id)
+    if os.path.exists(pth):
+        return pd.read_csv('%s/%s.csv' % (outdir, sim_id))
+    else:
+        return []
 
 
 def best_result(name, fixed={}, fitting={}, outdir='.', nopars=False):
@@ -101,22 +107,49 @@ def best_result(name, fixed={}, fitting={}, outdir='.', nopars=False):
         return fitdf.ix[0]
 
 
-def predict_from_result(model, problems, name, fixed={}, fitting={}, outdir='.'):
+def predict_from_result(model, problems, name, fixed={}, fitting={}, groups=None, outdir='.', max_T=300):
 
     # load the best result
     best = best_result(name, fixed, fitting, outdir=outdir)
 
-    # copy best-fit parameter settings
-    pars = deepcopy(fixed)
-    for p in fitting:
-        pars[p] = best[p]
-
-    # run the model for each problem
     results = {}
-    for pid in problems:
-        results[pid] = model(problems[pid], pars)
 
-    return results
+    if groups==None:
+        # copy best-fit parameter settings
+        pars = deepcopy(fixed)
+        pars['max_T'] = max_T
+
+        for p in fitting:
+            pars[p] = best[p]
+
+        # run the model for each problem
+        for pid in problems:
+            results[pid] = model(problems[pid], pars)
+
+        return results
+
+    else:
+
+        for grp in groups:
+
+            # copy best-fit parameter settings
+            pars = deepcopy(fixed)
+            pars['max_T'] = max_T
+
+            for p in fitting:
+                if p.count('(')==0:
+                    pars[p] = best[p]
+
+            # copy any group-specific parameters
+            for p in fitting:
+                if p.count('(%s)' % grp)==1:
+                    pars[p.rstrip('(%s)' % grp)] = best[p]
+
+            # run the model for each problem
+            for pid in problems:
+                results[(grp,pid)] = model(problems[pid], pars)
+
+        return results
 
 
 def pred_quantiles(pred, quantiles=[.25, .5, .75]):

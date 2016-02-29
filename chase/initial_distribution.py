@@ -40,9 +40,6 @@ def laplace_initial_distribution(N, pars):
     return np.matrix(num / den)
 
 
-
-
-
 if __name__ == '__main__':
 
     #d = softmax_initial_distribution(9, {})
