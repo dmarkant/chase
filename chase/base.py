@@ -75,13 +75,27 @@ class CHASEModel(object):
         """Evaluate the model for a given set of parameters
         and option set."""
 
+        se = self.drift.evaluation(options, pars)
+        sigma2 = se['sigma2']
+
+        self.dt = pars.get('dt', 1) # size of time increment
+        self.step = np.sqrt(sigma2 * self.dt) # size of state space increment
         self.max_T = int(pars.get('max_T', 100))    # range of timesteps
-        self.set_statespace(pars)                   # threshold and state space
+        self.theta = int(np.floor(pars.get('theta', 5))) # controlling size of state space
+
+        self.V = np.arange(-self.theta*self.step,
+                           self.theta*self.step+self.step,
+                           self.step, dtype=float)
+        self.m = len(self.V)
+
         vi_pqr = np.concatenate((np.array([0, self.m - 1]), np.arange(1, self.m - 1)))
         self.V_pqr = self.V[vi_pqr] # sort state space
 
         # evaluate the starting distribution
         Z = self.Z(self.m - 2, pars)
+        Z = Z/Z.sum()
+        assert np.isclose(Z.sum(), 1)
+
 
         # transition matrix
         tm_pqr = self.transition_matrix_PQR(options, pars)
@@ -93,16 +107,15 @@ class CHASEModel(object):
         # min-steps
         if 'minsamplesize' in pars:
             min_ss = pars.get('minsamplesize')
-            if min_ss == 2:
-                Z = Z * Q
-            else:
-                Z = Z * matrix_power(Q, min_ss - 1)
+            #if min_ss == 2:
+            #    Z = Z * Q
+            #else:
+            Z = Z * matrix_power(Q, int((min_ss - 1)/self.dt))
             Z = np.matrix(Z / np.sum(Z))
 
-
-        S = np.zeros((self.max_T, self.m - 2, self.m - 2))
+        S = np.zeros((self.max_T/self.dt, self.m - 2, self.m - 2))
         S[0] = np.eye(self.m - 2)
-        for i in range(1, self.max_T):
+        for i in range(1, int(self.max_T/self.dt)):
             S[i] = np.dot(S[i-1], Q)
 
         #SR = np.array([np.dot(s, R) for s in S])
@@ -120,11 +133,12 @@ class CHASEModel(object):
         # probability of stopping over time
         # (see Diederich and Busemeyer, 2003, eqn. 18)
         #p_stop_cond = np.array([np.dot(Z, sr)/p_resp for sr in SR]).reshape((len(N), 2))
-        p_stop_cond = np.array([pt/p_resp for pt in p_resp_t]).reshape((self.max_T, 2))
+        p_stop_cond = np.array([pt/p_resp for pt in p_resp_t]).reshape((self.max_T/self.dt, 2))
+        p_stop_cond = p_stop_cond.reshape((self.max_T, 1./self.dt, 2)).sum(axis=1)
 
         # expected number of timesteps, conditional on choice
         # (see Diederich and Busemeyer, 2003, eqn. 3)
-        exp_samplesize = (Z*(IQ*IQ)*R)/p_resp
+        exp_samplesize = self.dt*(Z*(IQ*IQ)*R)/p_resp
 
         return {'states_t': states_t,
                 'p_resp': np.array(p_resp)[0],
@@ -134,17 +148,10 @@ class CHASEModel(object):
                 }
 
 
-    def set_statespace(self, pars):
-        self.theta = int(pars.get('theta', 5))
-        self.V = np.arange(-self.theta, self.theta+1, 1, dtype=int)
-        self.m = len(self.V)
-        return
-
-
     def transition_probs(self, d, pars, state=None):
         p_stay = np.min([.9999, pars.get('p_stay', 0.)])
-        p_down = ((1 - p_stay)/2.) * (1 - d)
-        p_up = ((1 - p_stay)/2.) * (1 + d)
+        p_down = ((1 - p_stay)/2.) * (1 - d*np.sqrt(self.dt))
+        p_up = ((1 - p_stay)/2.) * (1 + d*np.sqrt(self.dt))
         assert np.isclose(np.sum([p_down, p_stay, p_up]), 1.)
         return np.array([p_down, p_stay, p_up])
 
@@ -215,7 +222,6 @@ class CHASEModel(object):
                 nllh.append(-1 * np.sum((np.log(pfixa(results['p_resp'][choices])) + \
                             np.log(pfixa(results['p_stop_cond'][ss, choices])))))
 
-        #print np.sum(nllh_choice), np.sum(nllh)
         return np.sum(nllh)
 
 
