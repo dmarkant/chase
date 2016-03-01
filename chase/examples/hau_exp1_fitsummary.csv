@@ -1,5 +1,0 @@
-,sim_id,k,N,nllh,bic
-0,"hau_exp1(p_stay,tau,theta|delta=0.5,minsamplesize=2)",3.0,230.0,972.113830529,1960.54189898
-1,"hau_exp1(p_stay,prelec_elevation,prelec_gamma,tau,theta|delta=0.5,minsamplesize=2)",5.0,230.0,944.340776426,1915.8719494
-2,"hau_exp1(p_stay,pow_gain,tau,theta,w_loss|delta=0.5,minsamplesize=2)",5.0,230.0,944.605017927,1916.4004324
-3,"hau_exp1(p_stay,pow_gain,prelec_elevation,prelec_gamma,tau,theta,w_loss|delta=0.5,minsamplesize=2)",7.0,230.0,943.501730888,1925.07001694
