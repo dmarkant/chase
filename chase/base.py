@@ -181,6 +181,7 @@ class CHASEModel(object):
         log-likelihood of observed data set."""
 
         nllh = []
+        nllh_choice = []
         for pid in data.problem.unique():
 
             probdata = data[data.problem==pid]
@@ -209,9 +210,12 @@ class CHASEModel(object):
 
                 choices = np.array(grpdata.choice.values, int)
 
+                nllh_choice.append(np.sum((np.log(pfixa(results['p_resp'][choices])))))
+
                 nllh.append(-1 * np.sum((np.log(pfixa(results['p_resp'][choices])) + \
                             np.log(pfixa(results['p_stop_cond'][ss, choices])))))
-        print np.sum(nllh)
+
+        #print np.sum(nllh_choice), np.sum(nllh)
         return np.sum(nllh)
 
 
@@ -225,6 +229,7 @@ class CHASEModel(object):
             for v, p in zip(value, fitting.keys()):
                 pars[p] = v
             nllh = self.nloglik(problems, data, pars)
+            #print value, nllh
             return nllh
 
 

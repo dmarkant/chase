@@ -124,6 +124,7 @@ def predict_from_result(model, problems, name, fixed={}, fitting={}, groups=None
 
         # run the model for each problem
         for pid in problems:
+            pars['probid'] = pid
             results[pid] = model(problems[pid], pars)
 
         return results
@@ -147,6 +148,7 @@ def predict_from_result(model, problems, name, fixed={}, fitting={}, groups=None
 
             # run the model for each problem
             for pid in problems:
+                pars['pid'] = pid
                 results[(grp,pid)] = model(problems[pid], pars)
 
         return results

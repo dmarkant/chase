@@ -92,7 +92,12 @@ class CPTDriftModel(DriftModel):
         # combine variances (ensure > 0)
         sigma2 = np.max([np.sum(evar), 1e-10])
 
-        assert not np.any(np.isnan(evar))
+        try:
+            assert not np.any(np.isnan(evar))
+        except AssertionError:
+            print weights
+            print evar
+            print dummy
 
         return {'weights': weights,
                 'values': values,
