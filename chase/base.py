@@ -79,7 +79,8 @@ class CHASEModel(object):
         sigma2 = se['sigma2']
 
         self.dt = pars.get('dt', 1) # size of time increment
-        self.step = np.sqrt(sigma2 * self.dt) # size of state space increment
+        self.step = 1 # size of state space increment
+        #self.step = np.sqrt(sigma2 * self.dt) # size of state space increment
         self.max_T = int(pars.get('max_T', 100))    # range of timesteps
         self.theta = int(np.floor(pars.get('theta', 5))) # controlling size of state space
 
