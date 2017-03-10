@@ -5,7 +5,7 @@ import numpy as np
 from itertools import product
 from copy import deepcopy
 from random import uniform
-from scipy.optimize import minimize, fmin
+from scipy.optimize import minimize
 from collections import OrderedDict
 
 
