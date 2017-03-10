@@ -16,6 +16,10 @@ def uniform_initial_distribution(N, *args):
 
 
 def softmax_initial_distribution(N, pars):
+    """Softmax function over starting points
+
+    tau: inverse temperature (low -> uniform)
+    """
     tau = pars.get('tau', 1.)
 
     V = np.arange(N) - (N - 1)/2
@@ -25,7 +29,9 @@ def softmax_initial_distribution(N, pars):
 
 
 def laplace_initial_distribution(N, pars):
+    """Laplace distribution over starting points"""
     p = pars.get('tau', .5)
+    p = np.clip(p, 0, 1 - 1e-10)
     S = np.arange(N) - (N - 1)/2
     theta = pars.get('theta')
 
