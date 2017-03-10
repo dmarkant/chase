@@ -2,9 +2,10 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 
-def value_fnc(outcomes, pars):
+def value_fnc(x, pars):
     """Value weighting function
 
+    x: array of outcomes
     pow_gain: exponent for gains (default=1)
     pow_loss: exponent for losses (default=pow_gain)
     w_loss: loss scaling parameter (default=1)
@@ -12,12 +13,12 @@ def value_fnc(outcomes, pars):
     pow_gain = pars.get('pow_gain', 1.)
     pow_loss = pars.get('pow_loss', pow_gain)
     w_loss   = pars.get('w_loss', 1.)
-    gain     = (outcomes * (outcomes >= 0.)) ** pow_gain
-    loss     = -w_loss * ((-1 * (outcomes * (outcomes < 0.))) ** pow_loss)
+    gain     = (x * (x >= 0.)) ** pow_gain
+    loss     = -w_loss * ((-1 * (x * (x < 0.))) ** pow_loss)
     return gain + loss
 
 
-def w(p, delta, gamma):
+def w_prelec(p, delta, gamma):
     """Prelec decision weighting function
 
     p:     array of probabilities
@@ -78,14 +79,14 @@ def pweight_prelec(option, pars):
     if n_gains > 0:
         q = gaindf.pr.values
         r = np.append(np.cumsum(q[::-1])[::-1], [0])
-        wr = w(r, prelec_elevation, prelec_gamma)
+        wr = w_prelec(r, prelec_elevation, prelec_gamma)
         wrd = -np.ediff1d(wr)
         gaindf.w = wrd
 
     if n_losses > 0:
         q = lossdf.pr.values
         r = np.append([0], np.cumsum(q))
-        wr = w(r, prelec_elevation, prelec_gamma)
+        wr = w_prelec(r, prelec_elevation, prelec_gamma)
         wrd = np.ediff1d(wr)
         lossdf.w = wrd
 
