@@ -24,7 +24,7 @@ def w(p, delta, gamma):
     delta: elevation parameter
     gamma: curvature parameter
     """
-    assert np.sum(p < 0)==0 and np.sum(p > 1)==0
+    assert np.all(p >= 0) and np.all(p <= 1)
     f = np.exp(-delta * ((-np.log(p)) ** gamma))
 
     # truncate at [0, 1]
@@ -96,7 +96,7 @@ def pweight_prelec(option, pars):
     for i in range(n_losses):
         weights[lossdf.iloc[i]['id']] = lossdf.iloc[i]['w']
 
-    assert np.sum(np.isnan(weights))==0
+    assert not np.any(np.isnan(weights))
 
     # normalize (in case of mixed option)
     weights = weights / np.sum(weights)
