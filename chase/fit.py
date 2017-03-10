@@ -9,6 +9,16 @@ from scipy.optimize import minimize, fmin
 from collections import OrderedDict
 
 
+def freepars(parset, PARS):
+    fitting = {}
+    for p in parset:
+        if p.count('(') > 0:
+            fitting[p] = PARS[p.split('(')[0]]
+        else:
+            fitting[p] = PARS[p]
+    return fitting
+
+
 def fit_mlh(model, problems, data, name,
             fixed={}, fitting={}, niter=5,
             outdir='.', method='Nelder-Mead', save=True, quiet=False):
@@ -18,6 +28,7 @@ def fit_mlh(model, problems, data, name,
 
     cols = ['iteration', 'success', 'nllh', 'k', 'N', 'bic']
 
+    # get range of thetas for grid search
     thetas = filter(lambda k: k.count('theta') > 0, fitting.keys())
     if len(thetas) > 0:
         theta_min, theta_max = fitting['theta']
@@ -31,11 +42,9 @@ def fit_mlh(model, problems, data, name,
     rest.sort()
     cols += rest
 
-
     # determine number of parameters and observations
     k = len(fitting)
     N = data.shape[0]
-
 
     # create fit table
     arr = []
@@ -44,8 +53,7 @@ def fit_mlh(model, problems, data, name,
             arr.append([i, np.nan, np.nan, k, N, np.nan] + th + [np.nan for _ in range(k - len(thetas))])
     fitdf = pd.DataFrame(arr, columns=cols)
 
-
-    # iterate through
+    # iterate through parameter combinations
     for i, row in fitdf.iterrows():
 
         # update pars with current values of theta
@@ -55,15 +63,20 @@ def fit_mlh(model, problems, data, name,
 
         pars['fitting'] = OrderedDict([(p, fitting[p]) for p in rest])
 
+        # if theta=1, can't fit tau
+        if len(thetas)==1 and row[th]==1 and 'tau' in pars['fitting']:
+            del pars['fitting']['tau']
+
+
         init = []
-        for p in rest:
+        for p in pars['fitting']:
+            # if fitting normal stopping distribution, initialize at mean
             if p=='mu':
                 init.append(data.samplesize.mean())
-            elif len(fitting[p]) == 3:
-                init.append(fitting[p][2])
             else:
                 init.append(uniform(fitting[p][0], fitting[p][1]))
 
+        # fit!
         f = minimize(model.nloglik_opt, init, (problems, data, pars,),
                      method=method, options={'ftol': .001})
 
@@ -88,15 +101,16 @@ def load_results(name, fixed={}, fitting={}, outdir='.'):
     sim_id = sim_id_str(name, fixed, fitting)
     pth = '%s/%s.csv' % (outdir, sim_id)
     if os.path.exists(pth):
-        return pd.read_csv('%s/%s.csv' % (outdir, sim_id))
+        return pd.read_csv(pth)
     else:
+        print 'no file found: %s' % pth
         return []
 
 
 def best_result(name, fixed={}, fitting={}, outdir='.', nopars=False):
     sim_id = sim_id_str(name, fixed, fitting)
     fitdf = load_results(name, fixed=fixed, fitting=fitting, outdir=outdir)
-    fitdf = fitdf[fitdf.success==True].sort('nllh').reset_index()
+    fitdf = fitdf[fitdf.success==True].sort_values(by='nllh').reset_index()
     fitdf['sim_id'] = sim_id
     if fitdf.shape[0] == 0:
         return pd.Series({'sim_id': sim_id})
@@ -107,61 +121,63 @@ def best_result(name, fixed={}, fitting={}, outdir='.', nopars=False):
         return fitdf.ix[0]
 
 
-def predict_from_result(model, problems, name, fixed={}, fitting={}, groups=None, outdir='.', max_T=300):
+def predict_from_result(model, problems, data, name, fixed={}, fitting={},
+                        groups=None, outdir='.', max_T=100):
+    """Get predictions for fitted CHASE model"""
+
+    # minimum sample size
+    minsamplesize = fixed.get('minsamplesize', 1)
 
     # load the best result
     best = best_result(name, fixed, fitting, outdir=outdir)
 
-    results = {}
+    # free parameters that are not specific to any groups
+    nonspec = filter(lambda k: k.count('(')==0, fitting.keys())
+    for k in nonspec:
+        data.loc[:,k] = [best[k] for _ in range(data.shape[0])]
 
-    if groups==None:
-        # copy best-fit parameter settings
+    # free parameters that differ across groups
+    factors = []
+    spec = filter(lambda k: k.count('(')>0, fitting.keys())
+    for k in spec:
+        sp = k.rstrip(')').split('(')
+        p = sp[0]
+        f, value = sp[1].split('=')
+        factors.append(f)
+        ss = data[data[f]==value]
+        data.loc[data[f]==value,p] = [best[k] for _ in range(ss.shape[0])]
+
+    # get model predictions for each row in dataset
+    arr = []
+    for i, row in data.iterrows():
+
         pars = deepcopy(fixed)
         pars['max_T'] = max_T
+        pid = row['problem']
+        pars['probid'] = pid
 
-        for p in fitting:
-            pars[p] = best[p]
+        for k in nonspec:
+            pars[k] = best[k]
+        for k in spec:
+            p = k.split('(')[0]
+            pars[p] = row[p]
 
-        # run the model for each problem
-        for pid in problems:
-            pars['probid'] = pid
-            results[pid] = model(problems[pid], pars)
+        # run the model
+        r = model(problems[pid], pars)
+        arr.append([pid, np.round(r['p_resp'][1], 3)] + list(minsamplesize + pred_quantiles(r)))
 
-        return results
-
-    else:
-
-        for grp in groups:
-
-            # copy best-fit parameter settings
-            pars = deepcopy(fixed)
-            pars['max_T'] = max_T
-
-            for p in fitting:
-                if p.count('(')==0:
-                    pars[p] = best[p]
-
-            # copy any group-specific parameters
-            for p in fitting:
-                if p.count('(%s)' % grp)==1:
-                    pars[p.rstrip('(%s)' % grp)] = best[p]
-
-            # run the model for each problem
-            for pid in problems:
-                pars['pid'] = pid
-                results[(grp,pid)] = model(problems[pid], pars)
-
-        return results
+    preddf = pd.DataFrame(arr, columns=['problem', 'cp', 'ss(.25)', 'ss(.5)', 'ss(.75)'])
+    return preddf
 
 
 def pred_quantiles(pred, quantiles=[.25, .5, .75]):
     dist = np.sum([pred['p_resp'][i]*pred['p_stop_cond'][:,i] for i in [0,1]], axis=0)
-    return np.array([np.sum(np.cumsum(dist) < q) for q in quantiles])
+    return np.array([np.sum(np.cumsum(dist) <= q) for q in quantiles])
 
 
-def pred_quantiles_all(pred, quantiles=[.25, .5, .75]):
-    arr = []
-    for probid in pred.keys():
-        dist = np.sum([pred[probid]['p_resp'][i]*pred[probid]['p_stop_cond'][:,i] for i in [0,1]], axis=0)
-        arr.append(np.array([np.sum(np.cumsum(dist) < q) for q in quantiles]))
-    return np.mean(arr, axis=0)
+#def pred_quantiles_all(pred, quantiles=[.25, .5, .75]):
+#    arr = []
+#    for probid in pred.keys():
+#        dist = np.sum([pred[probid]['p_resp'][i]*pred[probid]['p_stop_cond'][:,i] for i in [0,1]], axis=0)
+#        arr.append(np.array([np.sum(np.cumsum(dist) <= q) for q in quantiles]))
+#    return np.mean(arr, axis=0)
