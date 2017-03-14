@@ -63,7 +63,6 @@ def rank_outcomes_by_domain(option):
     return gaindf, lossdf
 
 
-
 def pweight_prelec(option, pars):
     prelec_elevation = pars.get('prelec_elevation', 1.)
     prelec_gamma = pars.get('prelec_gamma', 1.)
@@ -114,3 +113,35 @@ def setup(problems):
             gaindf, lossdf = rank_outcomes_by_domain(option)
             rdw[pid].append({'gaindf': gaindf, 'lossdf': lossdf})
     return rdw
+
+
+def normal_raised_to_power(option, alpha):
+    """For an option with normally distributed outcomes X,
+    find the expected value and expected variance after
+    transformation X^alpha"""
+    mu, sigma2 = option
+
+    def f_positive(x):
+        return x**alpha*(1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+
+    def f_negative(x):
+        return -((x - 2*mu)**(alpha))*(1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+
+    def f_var_positive(x):
+        return x**(2*alpha)*(1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+
+    def f_var_negative(x):
+        return (((x - 2*mu)**(2*alpha)))*(1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+
+    # integrate f_positive over [0, np.inf], f_negative over [2*mu, np.inf]
+    sPos = integrate.quad(lambda x: f_positive(x), 0, np.inf)[0]
+    sNeg = integrate.quad(lambda x: f_negative(x), mu*2, np.inf)[0]
+
+    # integrate f_var_positive over [0, np.inf], f_var_negative over [2*mu, np.inf]
+    vPos = integrate.quad(lambda x: f_var_positive(x), 0, np.inf)[0]
+    vNeg = integrate.quad(lambda x: f_var_negative(x), mu*2, np.inf)[0]
+
+    ev = sPos + sNeg
+    evar = vPos + vNeg - ev**2
+    return ev, evar
+
