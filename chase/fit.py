@@ -164,15 +164,26 @@ def predict_from_result(model, problems, data, name, fixed={}, fitting={},
 
         # run the model
         r = model(problems[pid], pars)
-        arr.append([pid, np.round(r['p_resp'][1], 3)] + list(minsamplesize + pred_quantiles(r)))
+        arr.append([pid, np.round(r['p_resp'][1], 3)] + \
+                   list(minsamplesize + pred_quantiles(r)) + \
+                   list(minsamplesize + pred_quantiles_by_choice(0, r)) + \
+                   list(minsamplesize + pred_quantiles_by_choice(1, r)))
 
-    preddf = pd.DataFrame(arr, columns=['problem', 'cp', 'ss(.25)', 'ss(.5)', 'ss(.75)'])
+    preddf = pd.DataFrame(arr, columns=['problem', 'cp', 'ss(.25)', 'ss(.5)', 'ss(.75)',
+                                        'ss_L(.25)', 'ss_L(.5)', 'ss_L(.75)',
+                                        'ss_H(.25)', 'ss_H(.5)', 'ss_H(.75)'])
     return preddf
 
 
 def pred_quantiles(pred, quantiles=[.25, .5, .75]):
     dist = np.sum([pred['p_resp'][i]*pred['p_stop_cond'][:,i] for i in [0,1]], axis=0)
     return np.array([np.sum(np.cumsum(dist) <= q) for q in quantiles])
+
+
+def pred_quantiles_by_choice(option_ind, pred, quantiles=[.25, .5, .75]):
+    dist = pred['p_stop_cond'][:,option_ind]
+    q = np.array([np.sum(np.cumsum(dist) <= q) for q in quantiles])
+    return q
 
 
 #def pred_quantiles_all(pred, quantiles=[.25, .5, .75]):
