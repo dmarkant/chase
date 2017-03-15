@@ -16,15 +16,20 @@ class DriftModel(object):
 
     def __call__(self, options, pars={}, **kwargs):
         """Evaluate the drift rate for a given
-        set of parameters"""
+        set of parameters.
 
+        pref_units: Units of preference change ('sums' | 'diffs')
+        sc: Drift scaling factor (applied to all problems)
+        p_sample_H: probability of sampling the H option
+        """
         pref_units = pars.get('pref_units', 'diffs')
         sc = pars.get('sc', 1)
         p_sample_H = pars.get('p_sample_H', .5)
 
+        # subjective evaluation of options
         se = self.evaluate(options, pars)
-        V = se['V']
-        sigma2 = se['sigma2']
+        V = se['V'] # expected values
+        sigma2 = se['sigma2'] # expected variances
 
         if pref_units == 'diffs':
             # mean change is difference in option valences
@@ -43,20 +48,39 @@ class DriftModel(object):
         return d
 
 
-    def evaluate(self, options, pars):
-
+    def weighting(self, options, pars):
         optiontype = pars.get('optiontype', 'multinomial')
-        pref_units  = pars.get('pref_units', 'diffs')
-        p_stay = pars.get('p_stay', 0)
-        p_sample_H = pars.get('p_sample_H', .5)
-
 
         if optiontype is 'normal':
             weights = None
             values = None
             V = options[:,0]
             evar = options[:,1]
+        elif optiontype is 'multinomial':
+            values = options[:,:,0]
+            weights = options[:,:,1]
 
+            # weighted value of each outcome
+            v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
+
+            # expected value of each option
+            V = np.sum(v, axis=1)
+            evar = None
+
+        return weights, values, V, evar
+
+
+    def evaluate(self, options, pars):
+
+        optiontype = pars.get('optiontype', 'multinomial')
+        pref_units  = pars.get('pref_units', 'diffs')
+        p_sample_H = pars.get('p_sample_H', .5)
+        p_stay = pars.get('p_stay', 0)
+
+
+        weights, values, V, evar = self.weighting(options, pars)
+
+        if optiontype is 'normal':
 
             if pref_units == 'diffs':
                 # nothing else to do
@@ -68,24 +92,16 @@ class DriftModel(object):
                 #delta = (1-p_stay) * (c * V[1] - (1 - c) * V[0])
                 delta = (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
 
+                # variance around the mean preference change
                 sigma0 = evar[0] + (-V[0] - delta)**2
                 sigma1 = evar[1] + ( V[1] - delta)**2
                 evar = np.array([sigma0, sigma1])
 
-        else:
-
-            values = options[:,:,0]
-            weights = options[:,:,1]
-
-            # expected value of each outcome
-            v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
-
-            # expected value of each option
-            V = np.sum(v, axis=1)
+        elif optiontype is 'multinomial':
 
             if pref_units == 'diffs':
                 # expected variance of each option
-                evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
+                evar = np.array([np.dot(weights[i], values[i] ** 2) - V[i] ** 2 for i in range(len(options))])
 
             elif pref_units == 'sums':
 
@@ -110,6 +126,7 @@ class DriftModel(object):
                 'sigma2': sigma2}
 
 
+
 class CPTDriftModel(DriftModel):
     """CPT drift model."""
 
@@ -123,13 +140,8 @@ class CPTDriftModel(DriftModel):
             self.rdw = None
 
 
-    def evaluate(self, options, pars):
-
-        pref_units  = pars.get('pref_units', 'diffs')
+    def weighting(self, options, pars):
         optiontype = pars.get('optiontype', 'multinomial')
-        p_stay = pars.get('p_stay', 0)
-        p_sample_H = pars.get('p_sample_H', .5)
-
 
         if optiontype is 'multinomial':
             if 'prelec_gamma' in pars or 'prelec_elevation' in pars:
@@ -145,22 +157,7 @@ class CPTDriftModel(DriftModel):
 
             # expected value of each option
             V = np.sum(v, axis=1)
-
-
-            if pref_units == 'diffs':
-
-                # expected variance of each option
-                evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
-
-            elif pref_units == 'sums':
-
-                # expected change in preference
-                #delta = (1-p_stay) * (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
-                delta = (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
-
-                # expected variance of valences
-                evar = np.array([np.dot(weights[i], values[i] ** 2) - delta ** 2 for i in range(len(options))])
-
+            evar = None
 
         elif optiontype is 'normal':
             weights = None
@@ -179,33 +176,7 @@ class CPTDriftModel(DriftModel):
                 V = np.array([ev0, ev1])
                 evar = np.array([evar0, evar1])
 
-
-            if pref_units == 'diffs':
-                # nothing else to do
-                pass
-
-            elif pref_units == 'sums':
-
-                # mean difference
-                #delta = (1-p_stay) * (c * V[1] - (1 - c) * V[0])
-                delta = (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
-                sigma0 = evar[0] + (-V[0] - delta)**2
-                sigma1 = evar[1] + ( V[1] - delta)**2
-                evar = np.array([sigma0, sigma1])
-
-
-        # for both diffs and sums, the expected variance in
-        # preference change is weighted sum from sampling each option
-        sigma2 = p_sample_H * evar[1] + (1 - p_sample_H) * evar[0]
-        sigma2 = np.clip(sigma2, 1e-10, np.inf)
-
-        assert not np.any(np.isnan(evar))
-
-        return {'weights': weights,
-                'values': values,
-                'evar': evar,
-                'V': V,
-                'sigma2': sigma2}
+        return weights, values, V, evar
 
 
 
