@@ -68,12 +68,7 @@ class CHASEModel(object):
             Z = np.array([[1]])
         else:
             Z = self.Z(self.m - 2, pars)
-        try:
-            assert np.isclose(Z.sum(), 1)
-        except:
-            print pars
-            print Z
-            print dummy
+        assert np.isclose(Z.sum(), 1)
 
         # transition matrix
         tm_pqr = self.transition_matrix_PQR(options, pars)
