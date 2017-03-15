@@ -66,20 +66,8 @@ def bic(negllh, n_free, n_obs):
 
 
 def pfix(p):
+    """Truncate probabilities close to 0 and 1"""
     return np.clip(p, 1e-5, 1 - 1e-5)
-    #c = 1e-5
-    #return np.min([np.max([p, c]), 1 - c])
-
-
-#def pfixa(arr):
-#    c = 1e-5
-#    arr[arr < c] = c
-#    arr[arr > (1-c)] = 1 - c
-#    return arr
-
-
-#def pred_quantiles(p_stop, quantiles=[.25, .5, .75]):
-#    return np.array([np.sum(np.cumsum(p_stop) <= q) for q in quantiles]) + 1
 
 
 def sample_from_discrete(cp):
@@ -96,11 +84,3 @@ def expected_variance(option):
     weights = option[:,1]
     ev = expected_value(option)
     return np.dot(weights, values ** 2) - ev ** 2
-
-
-#def expected_variance_mixture(option):
-#    values = option[:,0]
-#    weights = option[:,1]
-#    ev = expected_value(option)
-#    return np.dot(weights, values ** 2) - ev ** 2
-
