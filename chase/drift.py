@@ -1,6 +1,9 @@
 import numpy as np
 import cpt
 from time import time
+from scipy.stats import norm
+import scipy.integrate as integrate
+
 
 class DriftModel(object):
     """EV drift model.
@@ -8,47 +11,97 @@ class DriftModel(object):
     """
     def __init__(self, **kwargs):
         self.problems = kwargs.get('problems', None)
+        self.problemtype = kwargs.get('problemtype', 'multinomial')
+
 
     def __call__(self, options, pars={}, **kwargs):
         """Evaluate the drift rate for a given
         set of parameters"""
 
-        c = pars.get('c', .5)
-        se = self.evaluation(options, pars)
+        pref_units = pars.get('pref_units', 'diffs')
+        sc = pars.get('sc', 1)
+        p_sample_H = pars.get('p_sample_H', .5)
+
+        se = self.evaluate(options, pars)
         V = se['V']
         sigma2 = se['sigma2']
-        d = c * (V[1] - V[0]) / (np.sqrt(sigma2))
 
+        if pref_units == 'diffs':
+            # mean change is difference in option valences
+            delta = V[1] - V[0]
+
+        elif pref_units == 'sums':
+            # mean change is weighed sum of option valences
+            delta = (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
+
+        # drift
+        d = delta / (sc * np.sqrt(sigma2))
         assert not np.isnan(d)
-        d = self.truncate(d)
+
+        # drift must be bounded by -1 and 1
+        d = np.clip(d, -.99999, .99999)
         return d
 
 
-    def truncate(self, d):
-        # drift must be bounded by -1, 1
-        if d <= -1:
-            d = -.99999
-        elif d >= 1:
-            d = .99999
-        return d
+    def evaluate(self, options, pars):
+
+        optiontype = pars.get('optiontype', 'multinomial')
+        pref_units  = pars.get('pref_units', 'diffs')
+        p_stay = pars.get('p_stay', 0)
+        p_sample_H = pars.get('p_sample_H', .5)
 
 
-    def evaluation(self, options, pars):
+        if optiontype is 'normal':
+            weights = None
+            values = None
+            V = options[:,0]
+            evar = options[:,1]
 
-        values = options[:,:,0]
-        weights = options[:,:,1]
 
-        # expected value of each outcome
-        v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
+            if pref_units == 'diffs':
+                # nothing else to do
+                pass
 
-        # expected variance of each option
-        evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
+            elif pref_units == 'sums':
 
-        # expected value of each option
-        V = np.sum(v, axis=1)
+                # mean difference
+                #delta = (1-p_stay) * (c * V[1] - (1 - c) * V[0])
+                delta = (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
 
-        # combine variances (ensure > 0)
-        sigma2 = np.max([np.sum(evar), 1e-10])
+                sigma0 = evar[0] + (-V[0] - delta)**2
+                sigma1 = evar[1] + ( V[1] - delta)**2
+                evar = np.array([sigma0, sigma1])
+
+        else:
+
+            values = options[:,:,0]
+            weights = options[:,:,1]
+
+            # expected value of each outcome
+            v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
+
+            # expected value of each option
+            V = np.sum(v, axis=1)
+
+            if pref_units == 'diffs':
+                # expected variance of each option
+                evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
+
+            elif pref_units == 'sums':
+
+                # expected change in preference
+                #delta = (1-p_stay) * (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
+                delta = (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
+
+                # expected variance of valences
+                evar = np.array([np.dot(weights[i], values[i] ** 2) - delta ** 2 for i in range(len(options))])
+
+        # for both diffs and sums, the expected variance in
+        # preference change is weighted sum from sampling each option
+        sigma2 = p_sample_H * evar[1] + (1 - p_sample_H) * evar[0]
+
+        # truncate close to zero
+        sigma2 = np.clip(sigma2, 1e-10, np.inf)
 
         return {'weights': weights,
                 'values': values,
@@ -61,43 +114,92 @@ class CPTDriftModel(DriftModel):
     """CPT drift model."""
 
     def __init__(self, **kwargs):
-        super(CPTDriftModel, self).__init__()
-        self.problems = kwargs.get('problems', None)
+        super(CPTDriftModel, self).__init__(**kwargs)
 
-        if self.problems is not None:
-            self.rdw = cpt.setup(self.problems)
+        if self.problemtype is 'multinomial':
+            if self.problems is not None:
+                self.rdw = cpt.setup(self.problems)
         else:
             self.rdw = None
 
 
-    def evaluation(self, options, pars):
+    def evaluate(self, options, pars):
 
-        if self.rdw is None or 'probid' not in pars:
-            weights = np.array([cpt.pweight_prelec(option, pars) for i, option in enumerate(options)])
-        else:
-            probid = pars['probid']
-            weights = np.array([cpt.pweight_prelec_known_problem(self.rdw[probid][i], pars) for i, option in enumerate(options)])
+        pref_units  = pars.get('pref_units', 'diffs')
+        optiontype = pars.get('optiontype', 'multinomial')
+        p_stay = pars.get('p_stay', 0)
+        p_sample_H = pars.get('p_sample_H', .5)
 
-        values = np.array([cpt.value_fnc(option[:,0], pars) for option in options])
 
-        # expected value of each outcome
-        v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
+        if optiontype is 'multinomial':
+            if 'prelec_gamma' in pars or 'prelec_elevation' in pars:
+                weights = np.array([cpt.pweight_prelec(option, pars) for i, option in enumerate(options)])
+            else:
+                probid = pars['probid']
+                weights = np.array([cpt.pweight_prelec(self.rdw[probid][i], pars) for i, option in enumerate(options)])
 
-        # expected variance of each option
-        evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
+            values = np.array([cpt.value_fnc(option[:,0], pars) for option in options])
 
-        # expected value of each option
-        V = np.sum(v, axis=1)
+            # expected value of each outcome
+            v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
 
-        # combine variances (ensure > 0)
-        sigma2 = np.max([np.sum(evar), 1e-10])
+            # expected value of each option
+            V = np.sum(v, axis=1)
 
-        try:
-            assert not np.any(np.isnan(evar))
-        except AssertionError:
-            print weights
-            print evar
-            print dummy
+
+            if pref_units == 'diffs':
+
+                # expected variance of each option
+                evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
+
+            elif pref_units == 'sums':
+
+                # expected change in preference
+                #delta = (1-p_stay) * (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
+                delta = (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
+
+                # expected variance of valences
+                evar = np.array([np.dot(weights[i], values[i] ** 2) - delta ** 2 for i in range(len(options))])
+
+
+        elif optiontype is 'normal':
+            weights = None
+            values = None
+            V = options[:,0]
+            evar = options[:,1]
+
+            if 'pow_gain' in pars:
+
+                # calculated expected value and variance given
+                # outcome transformation
+                alpha = pars['pow_gain']
+                ev0, evar0 = cpt.normal_raised_to_power(options[0], alpha)
+                ev1, evar1 = cpt.normal_raised_to_power(options[1], alpha)
+
+                V = np.array([ev0, ev1])
+                evar = np.array([evar0, evar1])
+
+
+            if pref_units == 'diffs':
+                # nothing else to do
+                pass
+
+            elif pref_units == 'sums':
+
+                # mean difference
+                #delta = (1-p_stay) * (c * V[1] - (1 - c) * V[0])
+                delta = (p_sample_H * V[1] - (1 - p_sample_H) * V[0])
+                sigma0 = evar[0] + (-V[0] - delta)**2
+                sigma1 = evar[1] + ( V[1] - delta)**2
+                evar = np.array([sigma0, sigma1])
+
+
+        # for both diffs and sums, the expected variance in
+        # preference change is weighted sum from sampling each option
+        sigma2 = p_sample_H * evar[1] + (1 - p_sample_H) * evar[0]
+        sigma2 = np.clip(sigma2, 1e-10, np.inf)
+
+        assert not np.any(np.isnan(evar))
 
         return {'weights': weights,
                 'values': values,
@@ -118,23 +220,31 @@ class SwitchingCPTDriftModel(CPTDriftModel):
         """Evaluate the drift rate for a given
         set of parameters"""
 
-        c = pars.get('c', .5)
-        se = self.evaluation(options, pars)
+        se = self.evaluate(options, pars)
         V = se['V']
         evar = se['evar']
+        sigma2 = np.max([np.sum(evar), 1e-10])
 
-        if sampled==0:  d = c * (-V[0]) / (np.sqrt(np.max([evar[0], 1e-10])))
-        else:           d = c * (V[1]) / (np.sqrt(np.max([evar[1], 1e-10])))
+        #n = 1
+        #if sampled==0:  d = -(V[0])/(n + np.sqrt(np.max([evar[0], 1e-10])))
+        #else:           d =  (V[1])/(n + np.sqrt(np.max([evar[1], 1e-10])))
 
-        d = self.truncate(d)
+        n = 0
+        if sampled==0:  d = -(V[0])/(n + np.sqrt(sigma2))
+        else:           d =  (V[1])/(n + np.sqrt(sigma2))
+
+        #if sampled==0:  d = (.25 * -V[0]) / (np.sqrt(np.max([evar[0], 1e-10])))
+        #else:           d =  (.25 * V[1]) / (np.sqrt(np.max([evar[1], 1e-10])))
+
+        d = np.clip(d, -.99999, .99999)
         return d
 
 
 if __name__ == '__main__':
 
-    options = [[[  4.        ,   0.5       ],
-                [ 12.        ,   0.26315789],
-                [  0.        ,   0.23684211]],
+    options = [[[  4.  ,   0.5 ],
+                [ 12.  ,   0.26],
+                [  0.  ,   0.23]],
                [[  1.  ,   0.41],
                 [  0.  ,   0.28],
                 [ 18.  ,   0.31]]]
