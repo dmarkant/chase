@@ -47,7 +47,7 @@ def rank_outcomes_by_domain(option):
         elif opt[0] < 0:
             losses.append([i, opt[0], opt[1], np.nan])
 
-    # if there are zero outcomes but no gains, group with losses
+    # if there are x=0 outcomes but no gains, group with losses
     for i, opt in enumerate(option):
         if opt[0] == 0:
             if len(gains) == 0:
@@ -121,17 +121,20 @@ def normal_raised_to_power(option, alpha):
     transformation X^alpha"""
     mu, sigma2 = option
 
+    def pdf(x):
+        return (1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+
     def f_positive(x):
-        return x**alpha*(1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+        return x**alpha * pdf(x)
 
     def f_negative(x):
-        return -((x - 2*mu)**(alpha))*(1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+        return -((x - 2*mu)**(alpha)) * pdf(x)
 
     def f_var_positive(x):
-        return x**(2*alpha)*(1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+        return x**(2*alpha) * pdf(x)
 
     def f_var_negative(x):
-        return (((x - 2*mu)**(2*alpha)))*(1/np.sqrt(2*np.pi*(sigma2)))*np.exp(-((x - mu)**2)/(2*sigma2))
+        return (((x - 2*mu)**(2*alpha))) * pdf(x)
 
     # integrate f_positive over [0, np.inf], f_negative over [2*mu, np.inf]
     sPos = integrate.quad(lambda x: f_positive(x), 0, np.inf)[0]
