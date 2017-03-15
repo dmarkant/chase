@@ -133,9 +133,8 @@ class CPTDriftModel(DriftModel):
     def __init__(self, **kwargs):
         super(CPTDriftModel, self).__init__(**kwargs)
 
-        if self.problemtype is 'multinomial':
-            if self.problems is not None:
-                self.rdw = cpt.setup(self.problems)
+        if self.problemtype is 'multinomial' and self.problems is not None:
+            self.rdw = cpt.setup(self.problems)
         else:
             self.rdw = None
 
@@ -144,12 +143,11 @@ class CPTDriftModel(DriftModel):
         optiontype = pars.get('optiontype', 'multinomial')
 
         if optiontype is 'multinomial':
-            if 'prelec_gamma' in pars or 'prelec_elevation' in pars:
-                weights = np.array([cpt.pweight_prelec(option, pars) for i, option in enumerate(options)])
-            else:
-                probid = pars['probid']
-                weights = np.array([cpt.pweight_prelec(self.rdw[probid][i], pars) for i, option in enumerate(options)])
 
+            if self.rdw is None: wopt = options
+            else:                wopt = self.rdw[pars['probid']]
+
+            weights = np.array([cpt.pweight_prelec(option, pars) for i, option in enumerate(wopt)])
             values = np.array([cpt.value_fnc(option[:,0], pars) for option in options])
 
             # expected value of each outcome
