@@ -6,45 +6,15 @@ from drift import *
 from initial_distribution import *
 from stopping import TruncatedNormal, Geometric
 from utils import *
-import logging
 from time import time
-from pdb import set_trace as bp
-
-
-LOG_FILENAME = 'chase.log'
-logging.basicConfig(filename=LOG_FILENAME,
-                    level=logging.DEBUG,
-                    format='[%(asctime)s] %(levelname)s: %(message)s'
-                    )
-
 
 
 class CHASEModel(object):
-    """Implements the basic sequential optional stopping
-    sampling model with a specified function for evaluating
-    the drift rate."""
 
     def __init__(self, **kwargs):
-        """Instantiate the optional stopping model.
-
-        :Arguments:
-
-            * data: pandas.DataFrame
-                data containing 'n_samples_A', 'n_samples_B', and 'choice' columns,
-                as well as any further columns to specify grouping variable
-
-            * drift: string or number
-                specifies either a numeric value for the drift, or a string
-                indicating type of drift model (either 'ev' or 'cpt')
-
-            * startdist: string
-                specifies which initial distribution. Possible choices
-                are 'uniform', 'softmax', 'indifferent', or 'laplace'
-
-
-        """
         self.data = kwargs.get('data', None)
         self.problems = kwargs.get('problems', None)
+        self.problemtype = kwargs.get('problemtype', 'multinomial')
 
         # set function for drift rate
         drift = kwargs.get('drift', 'ev')
@@ -53,7 +23,7 @@ class CHASEModel(object):
         if drift is 'ev':
             self.drift = DriftModel()
         elif drift is 'cpt':
-            self.drift = CPTDriftModel(problems=self.problems)
+            self.drift = CPTDriftModel(problems=self.problems, problemtype=self.problemtype)
 
         # set function for initial distribution
         startdist = kwargs.get('startdist', 'indifferent')
@@ -68,35 +38,42 @@ class CHASEModel(object):
         elif startdist is 'laplace':
             self.Z = laplace_initial_distribution
 
-        logging.info('Running CHASE model')
+
+    def set_statespace(self, pars):
+        self.theta = int(pars.get('theta', 5))
+        self.V = np.arange(-self.theta, self.theta+1, 1, dtype=int)
+        self.m = len(self.V)
+        return
 
 
     def __call__(self, options, pars):
         """Evaluate the model for a given set of parameters
         and option set."""
 
-        se = self.drift.evaluation(options, pars)
-        sigma2 = se['sigma2']
-
-        self.dt = pars.get('dt', 1) # size of time increment
-        self.step = 1 # size of state space increment
-        #self.step = np.sqrt(sigma2 * self.dt) # size of state space increment
+        self.dt = pars.get('stepsize', 1) # size of increments
         self.max_T = int(pars.get('max_T', 100))    # range of timesteps
-        self.theta = int(np.floor(pars.get('theta', 5))) # controlling size of state space
 
-        self.V = np.arange(-self.theta*self.step,
-                           self.theta*self.step+self.step,
-                           self.step, dtype=float)
+        self.theta = int(np.floor(pars.get('theta', 5))) # controlling size of state space
+        self.V = np.arange(-self.theta/self.dt,
+                           self.theta/self.dt+self.dt,
+                           self.dt, dtype=float)
         self.m = len(self.V)
+        #self.set_statespace(pars)
 
         vi_pqr = np.concatenate((np.array([0, self.m - 1]), np.arange(1, self.m - 1)))
         self.V_pqr = self.V[vi_pqr] # sort state space
 
         # evaluate the starting distribution
-        Z = self.Z(self.m - 2, pars)
-        Z = Z/Z.sum()
-        assert np.isclose(Z.sum(), 1)
-
+        if self.theta==1 and self.dt==1:
+            Z = np.array([[1]])
+        else:
+            Z = self.Z(self.m - 2, pars)
+        try:
+            assert np.isclose(Z.sum(), 1)
+        except:
+            print pars
+            print Z
+            print dummy
 
         # transition matrix
         tm_pqr = self.transition_matrix_PQR(options, pars)
@@ -105,21 +82,21 @@ class CHASEModel(object):
         R = tm_pqr[2:,:2]
         IQ = np.matrix(linalg.inv(I - Q))
 
-        # min-steps
+        # if there was a minimum sample size, update the
+        # initial distribution for that number of samples
         if 'minsamplesize' in pars:
             min_ss = pars.get('minsamplesize')
             #if min_ss == 2:
             #    Z = Z * Q
             #else:
+            #    Z = Z * matrix_power(Q, int((min_ss - 1)/self.dt))
             Z = Z * matrix_power(Q, int((min_ss - 1)/self.dt))
-            Z = np.matrix(Z / np.sum(Z))
+        Z = np.matrix(Z / np.sum(Z))
 
         S = np.zeros((self.max_T/self.dt, self.m - 2, self.m - 2))
         S[0] = np.eye(self.m - 2)
         for i in range(1, int(self.max_T/self.dt)):
             S[i] = np.dot(S[i-1], Q)
-
-        #SR = np.array([np.dot(s, R) for s in S])
         SR = np.tensordot(S, R, axes=1)
         states_t = np.dot(Z, S)
 
@@ -128,12 +105,10 @@ class CHASEModel(object):
         p_resp = Z * (IQ * R)
 
         # response probability over timesteps
-        #p_resp_t = np.array([np.dot(Z, sr) for sr in SR]).reshape((len(N), 2))
         p_resp_t = np.dot(Z, SR)
 
         # probability of stopping over time
         # (see Diederich and Busemeyer, 2003, eqn. 18)
-        #p_stop_cond = np.array([np.dot(Z, sr)/p_resp for sr in SR]).reshape((len(N), 2))
         p_stop_cond = np.array([pt/p_resp for pt in p_resp_t]).reshape((self.max_T/self.dt, 2))
         p_stop_cond = p_stop_cond.reshape((self.max_T, 1./self.dt, 2)).sum(axis=1)
 
@@ -187,46 +162,60 @@ class CHASEModel(object):
     def nloglik(self, problems, data, pars):
         """For a single set of parameters, evaluate the
         log-likelihood of observed data set."""
-
         nllh = []
         nllh_choice = []
-        for pid in data.problem.unique():
 
-            probdata = data[data.problem==pid]
+        excluded = ['fitting']
+        nonspec = filter(lambda k: k.count('(')==0 and k not in excluded, pars)
+        for k in nonspec:
+            data.loc[:,k] = [pars[k] for _ in range(data.shape[0])]
+
+        factors = []
+        spec = filter(lambda k: k.count('(')>0, pars)
+        for k in spec:
+            sp = k.rstrip(')').split('(')
+            p = sp[0]
+            f, value = sp[1].split('=')
+            factors.append(f)
+            ss = data[data[f]==value]
+            data.loc[data[f]==value,p] = [pars[k] for _ in range(ss.shape[0])]
+
+
+        for i, probdata in data.groupby(['problem'] + factors):
+
             pars['max_T'] = probdata.samplesize.max() + 1
+            pid = probdata['problem'].values[0]
             pars['probid'] = pid
 
-            for grp in probdata.group.unique():
-                # check if there are any parameters specific to this group
-                grpdata = probdata[probdata.group==grp]
-                grppars = {}
+            grppars = {}
+            nonspec = filter(lambda k: k.count('(')==0, pars)
+            for k in nonspec: grppars[k] = pars[k]
 
-                nonspec = filter(lambda k: k.count('(')==0, pars)
-                for k in nonspec:
-                    grppars[k] = pars[k]
+            spec = filter(lambda k: k.count('(')>0, pars)
+            for k in spec:
+                p = k.split('(')[0]
+                grppars[p] = probdata[p].values[0]
 
-                grp_k = filter(lambda k: k.count('(%s)' % grp)==1, pars)
-                for k in grp_k:
-                    grppars[k.rstrip('(%s)' % grp)] = pars[k]
+            # run the model
+            results = self.__call__(problems[pid], grppars)
 
-                # run the model
-                results = self.__call__(problems[pid], grppars)
+            # decrement observed sample sizes to line up with
+            # model (including any minimum sample size)
+            minss = grppars.get('minsamplesize', 1)
+            ss = np.array(probdata.samplesize.values, int) - minss
 
-                ss = np.array(grpdata.samplesize.values, int) - 1
-                if 'minsamplesize' in grppars:
-                    ss = ss - (grppars['minsamplesize'] - 1)
+            choices = np.array(probdata.choice.values, int)
 
-                choices = np.array(grpdata.choice.values, int)
-
-                nllh_choice.append(np.sum((np.log(pfixa(results['p_resp'][choices])))))
-
-                nllh.append(-1 * np.sum((np.log(pfixa(results['p_resp'][choices])) + \
-                            np.log(pfixa(results['p_stop_cond'][ss, choices])))))
+            nllh_choice.append(np.sum((np.log(pfix(results['p_resp'][choices])))))
+            nllh.append(-1 * np.sum((np.log(pfix(results['p_resp'][choices])) + \
+                        np.log(pfix(results['p_stop_cond'][ss, choices])))))
 
         return np.sum(nllh)
 
 
     def nloglik_opt(self, value, problems, data, pars):
+        """Unpack arguments from fitting method (fit.py)
+        and check they are valid before getting nloglik"""
         pars, fitting, verbose = unpack(value, pars)
 
         # check if the parameters are within allowed range
@@ -236,13 +225,15 @@ class CHASEModel(object):
             for v, p in zip(value, fitting.keys()):
                 pars[p] = v
             nllh = self.nloglik(problems, data, pars)
-            #print value, nllh
             return nllh
 
 
 class CHASEAlternateStoppingModel(CHASEModel):
-
-    """This incorporates an alternate stopping rule"""
+    """
+    CHASE with a fixed stopping rule. Can currently be
+    either a 1) truncated, discretized Normal or
+    2) geometric distribution.
+    """
 
     def __init__(self, **kwargs):
         super(CHASEAlternateStoppingModel, self).__init__(**kwargs)
@@ -256,18 +247,27 @@ class CHASEAlternateStoppingModel(CHASEModel):
             self.stoprule = Geometric()
 
 
+    def set_statespace(self, pars):
+        self.theta = int(pars.get('theta', 5))
+        self.V = np.arange(-self.theta, self.theta+1, 1, dtype=int)
+        self.m = len(self.V)
+        return
+
+
     def __call__(self, options, pars):
         """Evaluate the model for a given set of parameters."""
         self.max_T = int(pars.get('max_T', 100))  # range of sample sizes
         self.set_statespace(pars) # threshold and state space
+        self.dt = 1
 
         # evaluate the starting distribution
         Z = self.Z(self.m, {'theta': self.theta + 1, 'tau': pars.get('tau', .5)})
 
-        # transition matrix
+        # transition matrix with reflecting boundaries
         tm = self.transition_matrix_reflecting(options, pars)
 
-        # min-steps
+        # if there was a minimum sample size, update the
+        # initial distribution for that number of steps
         if 'minsamplesize' in pars:
             min_ss = pars.get('minsamplesize')
             if min_ss == 2:
@@ -282,13 +282,14 @@ class CHASEAlternateStoppingModel(CHASEModel):
             M.append( np.dot(M[-1], tm) )
         p_state_t = np.array(M).reshape((self.max_T, self.m))
 
-
+        # choice probabilities across states
         R = np.zeros((self.m, 2))
         R[self.theta,:] = 0.5
         R[:self.theta,0] = 1
         R[(self.theta+1):,1] = 1
         p_LH = np.dot(p_state_t, R)
 
+        # stopping distribution
         p_stop = self.stoprule.dist(pars)
 
         return {'states_t': p_state_t,
@@ -342,7 +343,6 @@ class CHASEAlternateStoppingModel(CHASEModel):
             p_choice = pred['p_resp_t'][samplesize][choice]
             nllh.append(-1 * (np.log(pfix(p_choice)) + np.log(pfix(p_stop[samplesize]))))
 
-        #print np.sum(nllh)
         return np.sum(nllh)
 
 
@@ -358,6 +358,8 @@ class CHASEOptionalStoppingSwitchingModel(CHASEModel):
         """Evaluate the model for a given set of parameters."""
         self.max_T = pars.get('max_T', 100)
         self.set_statespace(pars) # threshold and state space
+        self.dt = pars.get('dt', 1) # size of time increment
+        self.step = 1 # size of state space increment
 
         T = np.arange(1., self.max_T + 1) # range of sample sizes
         N = map(int, np.floor(T))
