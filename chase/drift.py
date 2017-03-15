@@ -1,8 +1,5 @@
 import numpy as np
 import cpt
-from time import time
-from scipy.stats import norm
-import scipy.integrate as integrate
 
 
 class DriftModel(object):
@@ -147,7 +144,7 @@ class CPTDriftModel(DriftModel):
             if self.rdw is None: wopt = options
             else:                wopt = self.rdw[pars['probid']]
 
-            weights = np.array([cpt.pweight_prelec(option, pars) for i, option in enumerate(wopt)])
+            weights = np.array([cpt.pweight_prelec(option, pars) for option in wopt])
             values = np.array([cpt.value_fnc(option[:,0], pars) for option in options])
 
             # expected value of each outcome
