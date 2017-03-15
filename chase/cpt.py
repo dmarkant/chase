@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+import scipy.integrate as integrate
+
 
 def value_fnc(x, pars):
     """Value weighting function

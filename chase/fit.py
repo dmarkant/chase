@@ -64,7 +64,7 @@ def fit_mlh(model, problems, data, name,
         pars['fitting'] = OrderedDict([(p, fitting[p]) for p in rest])
 
         # if theta=1, can't fit tau
-        if len(thetas)==1 and row[th]==1 and 'tau' in pars['fitting']:
+        if len(thetas)==1 and row[th]==1 and 'tau' in pars['fitting'] and 'stepsize' not in fixed:
             del pars['fitting']['tau']
 
 
