@@ -130,6 +130,7 @@ class CPTDriftModel(DriftModel):
     def __init__(self, **kwargs):
         super(CPTDriftModel, self).__init__(**kwargs)
 
+        # setup rank-dependent sorting of options to speed up fitting later
         if self.problemtype is 'multinomial' and self.problems is not None:
             self.rdw = cpt.setup(self.problems)
         else:
@@ -140,12 +141,18 @@ class CPTDriftModel(DriftModel):
         optiontype = pars.get('optiontype', 'multinomial')
 
         if optiontype is 'multinomial':
+            values = options[:,:,0]
+            weights = options[:,:,1]
 
-            if self.rdw is None: wopt = options
-            else:                wopt = self.rdw[pars['probid']]
+            # decision weighting
+            if 'prelec_gamma' in pars or 'prelec_elevation' in pars:
+                if self.rdw is None: wopt = options
+                else:                wopt = self.rdw[pars['probid']]
+                weights = np.array([cpt.pweight_prelec(option, pars) for option in wopt])
 
-            weights = np.array([cpt.pweight_prelec(option, pars) for option in wopt])
-            values = np.array([cpt.value_fnc(option[:,0], pars) for option in options])
+            # value weighting
+            if 'pow_gain' in pars or 'w_loss' in pars:
+                values = np.array([cpt.value_fnc(option[:,0], pars) for option in options])
 
             # expected value of each outcome
             v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
@@ -164,9 +171,8 @@ class CPTDriftModel(DriftModel):
 
                 # calculated expected value and variance given
                 # outcome transformation
-                alpha = pars['pow_gain']
-                ev0, evar0 = cpt.normal_raised_to_power(options[0], alpha)
-                ev1, evar1 = cpt.normal_raised_to_power(options[1], alpha)
+                ev0, evar0 = cpt.normal_raised_to_power(options[0], pars['pow_gain'])
+                ev1, evar1 = cpt.normal_raised_to_power(options[1], pars['pow_gain'])
 
                 V = np.array([ev0, ev1])
                 evar = np.array([evar0, evar1])
