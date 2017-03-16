@@ -54,9 +54,7 @@ class CHASEModel(object):
         self.max_T = int(pars.get('max_T', 100))    # range of timesteps
 
         self.theta = int(np.floor(pars.get('theta', 5))) # controlling size of state space
-        self.V = np.arange(-self.theta/self.dt,
-                           self.theta/self.dt+self.dt,
-                           self.dt, dtype=float)
+        self.V = np.arange(-self.theta/self.dt, self.theta/self.dt+self.dt, 1, dtype=float)
         self.m = len(self.V)
         #self.set_statespace(pars)
 
@@ -68,7 +66,7 @@ class CHASEModel(object):
             Z = np.array([[1]])
         else:
             Z = self.Z(self.m - 2, pars)
-        assert np.isclose(Z.sum(), 1)
+        Z = Z/Z.sum()
 
         # transition matrix
         tm_pqr = self.transition_matrix_PQR(options, pars)
@@ -105,7 +103,7 @@ class CHASEModel(object):
         # probability of stopping over time
         # (see Diederich and Busemeyer, 2003, eqn. 18)
         p_stop_cond = np.array([pt/p_resp for pt in p_resp_t]).reshape((self.max_T/self.dt, 2))
-        p_stop_cond = p_stop_cond.reshape((self.max_T, 1./self.dt, 2)).sum(axis=1)
+        p_stop_cond = p_stop_cond.reshape((self.max_T, int(1./self.dt), 2)).sum(axis=1)
 
         # expected number of timesteps, conditional on choice
         # (see Diederich and Busemeyer, 2003, eqn. 3)
@@ -121,8 +119,8 @@ class CHASEModel(object):
 
     def transition_probs(self, d, pars, state=None):
         p_stay = np.min([.9999, pars.get('p_stay', 0.)])
-        p_down = ((1 - p_stay)/2.) * (1 - d*np.sqrt(self.dt))
-        p_up = ((1 - p_stay)/2.) * (1 + d*np.sqrt(self.dt))
+        p_down = ((1 - p_stay)/2.) * (1 - d)
+        p_up = ((1 - p_stay)/2.) * (1 + d)
         assert np.isclose(np.sum([p_down, p_stay, p_up]), 1.)
         return np.array([p_down, p_stay, p_up])
 
