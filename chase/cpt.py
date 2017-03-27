@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 import scipy.integrate as integrate
+from utils import *
+from collections import OrderedDict
+from scipy.optimize import minimize
 
 
 def value_fnc(x, pars):
@@ -149,4 +152,166 @@ def normal_raised_to_power(option, alpha):
     ev = sPos + sNeg
     evar = vPos + vNeg - ev**2
     return ev, evar
+
+
+def choice_prob(options, pars):
+
+    s = pars.get('s', 1.) # choice sensitivity
+
+    weights = np.array([pweight_prelec(option, pars) for i, option in enumerate(options)])
+    values = np.array([value_fnc(option[:,0], pars) for option in options])
+
+    vL, vH = [np.dot(w, v) for (w, v) in zip(weights, values)]
+    cp = np.exp(vH * s) / (np.exp(vH * s) + np.exp(vL * s))
+    assert not np.isnan(cp)
+    return cp
+
+
+def MSD(value, problems, data, args):
+    pars, fitting, verbose = unpack(value, args)
+    if outside_bounds(value, fitting): return np.inf
+
+    observed = data.groupby('problem').apply(lambda d: d.choice.mean()).values
+    predicted = np.array([choice_prob(problems[k], pars) for k in problems])
+    msd = np.mean((predicted - observed) ** 2)
+    return msd
+
+
+def fit_msd(problems, data, name, fixed={}, fitting={}, niter=1, outdir='.'):
+    """Use maximum likelihood to fit CPT choice model"""
+    sim_id = sim_id_str(name, fixed, fitting)
+    print sim_id
+    checkpath(outdir)
+
+    cols = ['iteration', 'success', 'k', 'N', 'msd']
+    rest = fitting.keys()
+    rest.sort()
+    cols += rest
+
+    # determine number of parameters and observations
+    k = len(fitting)
+    N = data.shape[0]
+
+    # create fit table
+    arr = []
+    for i in range(niter):
+        arr.append([i, np.nan, k, N, np.nan] + [np.nan for _ in range(k)])
+    fitdf = pd.DataFrame(arr, columns=cols)
+
+
+    # iterate through
+    for i, row in fitdf.iterrows():
+
+        #print '%s/%s' % (i, fitdf.shape[0])
+
+        # update pars with current values of theta
+        pars = deepcopy(fixed)
+        pars['fitting'] = OrderedDict([(p, fitting[p]) for p in rest])
+        init = []
+        for p in rest:
+            if len(fitting[p]) == 3:
+                init.append(fitting[p][2])
+            else:
+                init.append(uniform(fitting[p][0], fitting[p][1]))
+
+        f = minimize(MSD, init, (problems, data, pars,),
+                     method='Nelder-Mead', options={'ftol': .0001})
+
+        fitdf.ix[i,'success'] = f['success']
+        fitdf.ix[i,'msd'] = f['fun']
+        for v, p in enumerate(pars['fitting'].keys()):
+            fitdf.ix[i,p] = f['x'][v]
+
+    # save the table
+    fitdf.to_csv('%s/%s.csv' % (outdir, sim_id))
+    return fitdf
+
+
+def nloglik_across_gambles(value, problems, data, args):
+    pars, fitting, verbose = unpack(value, args)
+    if outside_bounds(value, fitting):
+        return np.inf
+    else:
+
+        pids = data.problem.unique()
+        predicted = {pid: choice_prob(problems[pid], pars) for pid in problems if pid in pids}
+
+        cp = np.array([predicted[pid] for pid in data.problem.values])
+        choice = data.choice.values
+
+        llh = np.sum(np.log(pfixa(cp[choice==1]))) + \
+              np.sum(np.log(pfixa(1-cp[choice==0])))
+
+        print value, -llh
+        return -llh
+
+
+def fit_llh(data, fixed={}, fitting=[]):
+
+    pars = {'data': data}
+    for p in fixed:
+        pars[p] = fixed[p]
+    pars['fitting'] = fitting
+
+    init = [randstart(par) for par in pars['fitting']]
+    f = minimize(nloglik_across_gambles, init, (pars,), method='Nelder-Mead')
+
+    return {'bf_par': {fitting[i]: f['x'][i] for i in range(len(fitting))},
+            'nllh': f['fun'],
+            'bic': bic(f, pars),
+            'success': f['success']}
+
+
+def fit(problems, data, name, fixed={}, fitting={}, niter=1, outdir='.', opt='llh'):
+    """Use maximum likelihood to fit CPT model"""
+    sim_id = sim_id_str(name, fixed, fitting)
+    print sim_id
+    checkpath(outdir)
+
+    cols = ['iteration', 'success', 'k', 'N', 'msd', 'llh']
+    rest = fitting.keys()
+    rest.sort()
+    cols += rest
+
+    # determine number of parameters and observations
+    k = len(fitting)
+    N = data.shape[0]
+
+    # create fit table
+    arr = []
+    for i in range(niter):
+        arr.append([i, np.nan, k, N, np.nan, np.nan] + [np.nan for _ in range(k)])
+    fitdf = pd.DataFrame(arr, columns=cols)
+
+    if opt is 'llh':
+        func = nloglik_across_gambles
+    elif opt is 'msd':
+        func = MSD
+
+    # iterate through
+    for i, row in fitdf.iterrows():
+
+        #print '%s/%s' % (i, fitdf.shape[0])
+
+        # update pars with current values of theta
+        pars = deepcopy(fixed)
+        pars['fitting'] = OrderedDict([(p, fitting[p]) for p in rest])
+        init = []
+        for p in rest:
+            if len(fitting[p]) == 3:
+                init.append(fitting[p][2])
+            else:
+                init.append(uniform(fitting[p][0], fitting[p][1]))
+
+        f = minimize(func, init, (problems, data, pars,),
+                     method='Nelder-Mead', options={'ftol': .0001})
+
+        fitdf.ix[i,'success'] = f['success']
+        fitdf.ix[i,opt] = f['fun']
+        for v, p in enumerate(pars['fitting'].keys()):
+            fitdf.ix[i,p] = f['x'][v]
+
+    # save the table
+    fitdf.to_csv('%s/%s.csv' % (outdir, sim_id))
+    return fitdf
 
