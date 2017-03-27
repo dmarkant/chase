@@ -40,7 +40,6 @@ class DriftModel(object):
 
         # drift
         d = delta / (sc * np.sqrt(sigma2))
-        #d = .5 * (delta/(sc*np.sqrt(evar[0]))) + .5 * (delta/(sc*np.sqrt(evar[1])))
 
         try:
             assert not np.isnan(d)
@@ -115,131 +114,6 @@ class DriftModel(object):
 
                 # expected variance of each option
                 evar = np.array([np.dot(weights[i], values[i] ** 2) - V[i] ** 2 for i in range(len(options))])
-                sigma2 = p_sample_H * evar[1] + p_sample_L * evar[0]
-
-                L_c = -(values[0] - V[1])
-                H_c = values[1] - V[0]
-
-
-                #L_neg_w = p_sample_L * weights[0][L_c < -c]
-                #H_neg_w = p_sample_H * weights[1][H_c < -c]
-
-                #L_pos_w = p_sample_L * weights[0][L_c > c]
-                #H_pos_w = p_sample_H * weights[1][H_c > c]
-
-                #d_down = L_neg_w.sum() + H_neg_w.sum()
-                #d_up = L_pos_w.sum() + H_pos_w.sum()
-
-
-                #print d_down, d_up
-                #print dummy
-
-                #print weights[1]
-                #print values[1]
-                #print V[0]
-
-                #L_c[L_c ]
-
-                sep = pars.get('sep', 2)
-                k = pars.get('k', 1)
-                #k = 2
-                #n = 2
-                def prob_down(x):
-                    return 1/(1+np.exp(k*(x+sep)))
-
-                def prob_up(x):
-                    return 1/(1+np.exp(k*(-x+sep)))
-
-                #print L_c
-                #print weights[0]
-
-                total_p_down = 0
-                total_p_stay = 0
-                total_p_up   = 0
-                for i, x in enumerate(L_c):
-                    #print x
-                    total_p_down += p_sample_L * weights[0][i] * prob_down(x)
-                    total_p_up += p_sample_L * weights[0][i] * prob_up(x)
-                    total_p_stay += p_sample_L * weights[0][i] * (1 - (prob_down(x) + prob_up(x)))
-
-                #print H_c
-                #print weights[1]
-
-                for i, x in enumerate(H_c):
-                    #print x
-                    total_p_down += p_sample_H * weights[1][i] * prob_down(x)
-                    total_p_up += p_sample_H * weights[1][i] * prob_up(x)
-                    total_p_stay += p_sample_H * weights[1][i] * (1 - (prob_down(x) + prob_up(x)))
-
-                #print total_p_down
-                #print total_p_stay
-                #print total_p_up
-                #print total_p_down + total_p_stay + total_p_up
-                #print dummy
-
-                d_down = total_p_down
-                d_up = total_p_up
-
-
-
-                #L_neg = L_c[L_c < 0]
-                #L_neg_w = p_sample_L * weights[0][L_c < 0]
-
-                #H_neg = H_c[H_c < 0]
-                #H_neg_w = p_sample_H * weights[1][H_c < 0]
-
-                #L_pos = L_c[L_c > 0]
-                #L_pos_w = p_sample_L * weights[0][L_c > 0]
-
-                #H_pos = H_c[H_c > 0]
-                #H_pos_w = p_sample_H * weights[1][H_c > 0]
-
-
-                #print L_neg
-                #print L_neg_w
-                #print H_neg
-                #print H_neg_w
-                #print L_pos
-                #print L_pos_w
-                #print H_pos
-                #print H_pos_w
-
-                #p_down = np.sum(L_neg_w.sum() + H_neg_w.sum())
-                #p_up = np.sum(L_pos_w.sum() + H_pos_w.sum())
-
-                #print p_down
-                #print p_up
-
-
-                #mn_neg   = np.dot(L_neg_w, L_neg) + np.dot(H_neg_w, H_neg)
-                #evar_neg = np.dot(L_neg_w, L_neg ** 2) + np.dot(H_neg_w, H_neg ** 2)
-                #mn_pos   = np.dot(L_pos_w, L_pos) + np.dot(H_pos_w, H_pos)
-                #evar_pos = np.dot(L_pos_w, L_pos ** 2) + np.dot(H_pos_w, H_pos ** 2)
-
-                #print mn_neg
-                #print evar_neg
-                #print mn_pos
-                #print evar_pos
-
-                #d_down = -mn_neg/(np.sqrt(evar_neg)) if evar_neg > 0 else 0.
-                #d_up   = mn_pos/(np.sqrt(evar_pos)) if evar_pos > 0 else 0.
-
-                #d_down = p_down * d_down
-                #d_up = p_up * d_up
-
-                #print d_down
-                #print d_up
-                #print 1 - np.abs(d_up - d_down)
-
-                #d_up = np.clip(d_up, 0, 1)
-                #d_down = np.clip(d_down, 0, 1)
-
-
-                #print d_down
-                #print d_up
-
-
-
 
             elif pref_units == 'sums':
 
@@ -259,12 +133,7 @@ class DriftModel(object):
 
             # after t + 1 trials, what is the expected variance of the mean
             # for each option?
-
-
-            #trial = np.floor((t + 1)/2.)
-
             trial = t + 1
-
             sigma2 = p_sample_H * (evar[1] + evar[0]/trial) + p_sample_L * (evar[0] + evar[1]/trial)
 
 

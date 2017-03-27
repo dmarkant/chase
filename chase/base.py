@@ -70,7 +70,6 @@ class CHASEModel(object):
         else:
             Z = self.Z(self.m - 2, pars)
         Z = Z/Z.sum()
-        #print 'initial:', Z
 
 
         # transition matrix
@@ -130,7 +129,6 @@ class CHASEModel(object):
                 Q_s = tm_pqr[2:,2:]
                 Z = Z * Q_s
             Z = np.matrix(Z / np.sum(Z))
-            #print '(amp) minss:', Z
 
 
             tmax = 20
@@ -146,8 +144,6 @@ class CHASEModel(object):
             states_t = np.dot(Z, S)
             p_resp_t = np.dot(Z, SR)
             p_resp_a = p_resp_t.sum(axis=0)
-
-            #print states_t[:20]
 
             # second part
             if self.theta==1:
@@ -170,19 +166,10 @@ class CHASEModel(object):
             # choice probabilities for second segment
             p_resp_b = Z_t * (IQ * R)
 
-
-            #print p_resp_a
-            #print p_resp_b
-            #print np.sum(p_resp_a + p_resp_b)
-
-
             # overall choice probabilities
             p_resp = p_resp_a + p_resp_b
             assert np.isclose(p_resp.sum(), 1)
 
-
-            #exp_samplesize_b = (Z_t*(IQ*IQ)*R)
-            #print exp_samplesize_b
 
         # response probability over timesteps
         p_resp_t = np.dot(Z, SR)
@@ -202,38 +189,9 @@ class CHASEModel(object):
 
 
     def transition_probs(self, d, pars, state=None):
-        #p_stay = np.min([.9999, pars.get('p_stay', 0.)])
-        #p_down = ((1 - p_stay)/2.) * (1 - d)
-        #p_up = ((1 - p_stay)/2.) * (1 + d)
-
-        #sc = pars.get('sc', 1)
-        d_down = d['d_down']
-        d_up = d['d_up']
-        d_stay = 1 - (d_down + d_up)
-
-        #tot = d_down + d_up + d_stay
-
-
-        p_down = d_down
-        p_up = d_up
-        p_stay = d_stay
-
-
-        #d = np.clip(sc * (d_up - d_down), -1, 1)
-
-        #if p_stay == 1:
-        #    p_down = .05
-        #    p_up = .05
-        #    p_stay = .9
-
-        #print pars.get('sc')
-
-        #p_up = ((1 + d)**1.6)/3.
-        #p_down = ((1 - d)**1.6)/3.
-        #p_stay = 1 - (p_up + p_down)
-
-        #print p_down, p_stay, p_up
-
+        p_stay = np.min([.9999, pars.get('p_stay', 0.)])
+        p_down = ((1 - p_stay)/2.) * (1 - d)
+        p_up = ((1 - p_stay)/2.) * (1 + d)
         assert np.isclose(np.sum([p_down, p_stay, p_up]), 1.)
         return np.array([p_down, p_stay, p_up])
 
