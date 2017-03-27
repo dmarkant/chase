@@ -52,6 +52,9 @@ class CHASEModel(object):
 
         self.dt = pars.get('stepsize', 1) # size of increments
         self.max_T = int(pars.get('max_T', 100))    # range of timesteps
+        amp = pars.get('amp', False)
+        if amp:
+            self.max_T = np.max([100, self.max_T])
 
         self.theta = int(np.floor(pars.get('theta', 5))) # controlling size of state space
         self.V = np.arange(-self.theta/self.dt, self.theta/self.dt+self.dt, 1, dtype=float)
@@ -67,6 +70,8 @@ class CHASEModel(object):
         else:
             Z = self.Z(self.m - 2, pars)
         Z = Z/Z.sum()
+        #print 'initial:', Z
+
 
         # transition matrix
         tm_pqr = self.transition_matrix_PQR(options, pars)
@@ -85,6 +90,7 @@ class CHASEModel(object):
             #    Z = Z * matrix_power(Q, int((min_ss - 1)/self.dt))
             Z = Z * matrix_power(Q, int((min_ss - 1)/self.dt))
         Z = np.matrix(Z / np.sum(Z))
+        #print 'minss:', Z
 
         S = np.zeros((self.max_T/self.dt, self.m - 2, self.m - 2))
         S[0] = np.eye(self.m - 2)
@@ -97,6 +103,87 @@ class CHASEModel(object):
         # (see Diederich and Busemeyer, 2003, eqn. 2)
         p_resp = Z * (IQ * R)
 
+        # expected number of timesteps, conditional on choice
+        # (see Diederich and Busemeyer, 2003, eqn. 3)
+        exp_samplesize = self.dt*(Z*(IQ*IQ)*R)/p_resp
+
+        if amp:
+            # evaluate the starting distribution
+            if self.theta==1 and self.dt==1:
+                Z = np.array([[1]])
+            else:
+                Z = self.Z(self.m - 2, pars)
+            Z = Z/Z.sum()
+            #print '(amp) initial:', Z
+
+            S   = np.zeros((self.max_T, self.m - 2, self.m - 2))
+            S[0] = np.eye(self.m - 2)
+            Q_t = np.zeros((self.max_T, self.m - 2, self.m - 2))
+            R_t = np.zeros((self.max_T, self.m - 2, 2))
+            SR = np.zeros((self.max_T, self.m - 2, 2))
+
+
+            # update starting distribution
+            min_ss = pars.get('minsamplesize', 1)
+            for i in range(min_ss-1):
+                tm_pqr = self.transition_matrix_PQR_t(i, options, pars)
+                Q_s = tm_pqr[2:,2:]
+                Z = Z * Q_s
+            Z = np.matrix(Z / np.sum(Z))
+            #print '(amp) minss:', Z
+
+
+            tmax = 20
+            for i in range(tmax):
+                # transition matrix for this timestep
+                tm_pqr = self.transition_matrix_PQR_t(i + (min_ss - 1), options, pars)
+                Q_t[i] = tm_pqr[2:,2:]
+                R_t[i] = tm_pqr[2:,:2]
+
+                SR[i]  = np.dot(S[i], R_t[i])
+                S[i+1] = np.dot(S[i], Q_t[i])
+
+            states_t = np.dot(Z, S)
+            p_resp_t = np.dot(Z, SR)
+            p_resp_a = p_resp_t.sum(axis=0)
+
+            #print states_t[:20]
+
+            # second part
+            if self.theta==1:
+                Z_t = states_t.transpose()[i+1]
+            else:
+                Z_t = states_t[i+1]
+
+            # get the asymptotic transition matrix
+            tm_pqr = self.transition_matrix_PQR(options, pars)
+            Q = tm_pqr[2:,2:]
+            I = np.eye(self.m - 2)
+            R = tm_pqr[2:,:2]
+            IQ = np.matrix(linalg.inv(I - Q))
+
+
+            for i in range(tmax, int(self.max_T/self.dt)-1):
+                S[i+1] = np.dot(S[i], Q)
+            SR[tmax:] = np.tensordot(S[tmax:], R, axes=1)
+
+            # choice probabilities for second segment
+            p_resp_b = Z_t * (IQ * R)
+
+
+            #print p_resp_a
+            #print p_resp_b
+            #print np.sum(p_resp_a + p_resp_b)
+
+
+            # overall choice probabilities
+            p_resp = p_resp_a + p_resp_b
+            assert np.isclose(p_resp.sum(), 1)
+
+
+            #exp_samplesize_b = (Z_t*(IQ*IQ)*R)
+            #print exp_samplesize_b
+
         # response probability over timesteps
         p_resp_t = np.dot(Z, SR)
 
@@ -105,9 +192,6 @@ class CHASEModel(object):
         p_stop_cond = np.array([pt/p_resp for pt in p_resp_t]).reshape((self.max_T/self.dt, 2))
         p_stop_cond = p_stop_cond.reshape((self.max_T, int(1./self.dt), 2)).sum(axis=1)
 
-        # expected number of timesteps, conditional on choice
-        # (see Diederich and Busemeyer, 2003, eqn. 3)
-        exp_samplesize = self.dt*(Z*(IQ*IQ)*R)/p_resp
 
         return {'states_t': states_t,
                 'p_resp': np.array(p_resp)[0],
@@ -118,14 +202,72 @@ class CHASEModel(object):
 
 
     def transition_probs(self, d, pars, state=None):
-        p_stay = np.min([.9999, pars.get('p_stay', 0.)])
-        p_down = ((1 - p_stay)/2.) * (1 - d)
-        p_up = ((1 - p_stay)/2.) * (1 + d)
+        #p_stay = np.min([.9999, pars.get('p_stay', 0.)])
+        #p_down = ((1 - p_stay)/2.) * (1 - d)
+        #p_up = ((1 - p_stay)/2.) * (1 + d)
+
+        #sc = pars.get('sc', 1)
+        d_down = d['d_down']
+        d_up = d['d_up']
+        d_stay = 1 - (d_down + d_up)
+
+        #tot = d_down + d_up + d_stay
+
+
+        p_down = d_down
+        p_up = d_up
+        p_stay = d_stay
+
+
+        #d = np.clip(sc * (d_up - d_down), -1, 1)
+
+        #if p_stay == 1:
+        #    p_down = .05
+        #    p_up = .05
+        #    p_stay = .9
+
+        #print pars.get('sc')
+
+        #p_up = ((1 + d)**1.6)/3.
+        #p_down = ((1 - d)**1.6)/3.
+        #p_stay = 1 - (p_up + p_down)
+
+        #print p_down, p_stay, p_up
+
         assert np.isclose(np.sum([p_down, p_stay, p_up]), 1.)
         return np.array([p_down, p_stay, p_up])
 
 
     def transition_matrix_PQR(self, options, pars, full=False):
+
+        d = self.drift(options, pars)
+        tp = np.tile(self.transition_probs(d, pars), (self.m - 2, 1))
+
+        tm        = np.zeros((self.m, self.m), float)
+        tm[0,0]   = 1.
+        tm[-1,-1] = 1.
+
+        tm_pqr = np.zeros((self.m, self.m), float)
+        tm_pqr[0,0] = 1.
+        tm_pqr[1,1] = 1.
+
+        # construct PQR row by row
+        V_pqr = deepcopy(self.V_pqr)
+        for i in range(1, self.m - 1):
+            tm[i,i-1:i+2] = tp[i-1]
+            row = np.where(V_pqr==self.V[i])[0][0]
+            ind_pqr = np.array([np.where(V_pqr==self.V[i-1])[0][0], np.where(V_pqr==self.V[i])[0][0], np.where(V_pqr==self.V[i+1])[0][0]])
+            tm_pqr[row, ind_pqr] = tp[i-1]
+
+        if full:
+            return tm
+        else:
+            return tm_pqr
+
+
+    def transition_matrix_PQR_t(self, t, options, pars, full=False):
+
+        pars['t'] = t
 
         d = self.drift(options, pars)
         tp = np.tile(self.transition_probs(d, pars), (self.m - 2, 1))
@@ -198,6 +340,7 @@ class CHASEModel(object):
             ss = np.array(probdata.samplesize.values, int) - minss
 
             choices = np.array(probdata.choice.values, int)
+
 
             nllh_choice.append(np.sum((np.log(pfix(results['p_resp'][choices])))))
             nllh.append(-1 * np.sum((np.log(pfix(results['p_resp'][choices])) + \
