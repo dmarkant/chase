@@ -40,12 +40,7 @@ class DriftModel(object):
 
         # drift
         d = delta / (sc * np.sqrt(sigma2))
-
-        try:
-            assert not np.isnan(d)
-        except:
-            print d
-            print dummy
+        assert not np.isnan(d)
 
         # drift must be bounded by -1 and 1
         d = np.clip(d, -.99999, .99999)
@@ -144,9 +139,7 @@ class DriftModel(object):
                 'values': values,
                 'evar': evar,
                 'V': V,
-                'sigma2': sigma2,
-                'd_down': d_down,
-                'd_up': d_up}
+                'sigma2': sigma2}
 
 
 
