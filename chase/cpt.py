@@ -18,7 +18,7 @@ def value_fnc(x, pars):
     pow_gain = pars.get('pow_gain', 1.)
     pow_loss = pars.get('pow_loss', pow_gain)
     w_loss   = pars.get('w_loss', 1.)
-    gain     = (x * (x >= 0.)) ** pow_gain # AZ: seems like x is a single value, not an array?
+    gain     = (x * (x >= 0.)) ** pow_gain
     loss     = -w_loss * ((-1 * (x * (x < 0.))) ** pow_loss)
     return gain + loss
 
@@ -30,9 +30,7 @@ def w_prelec(p, delta, gamma):
     delta: elevation parameter
     gamma: curvature parameter
     """
-    assert np.all(p >= 0) and np.all(p <= 1) # AZ: this will always evaluate to false!
-    # shouldn't it be this instead:
-    # assert np.all([elem >= 0 and elem <= 1 for elem in p])
+    assert np.all(p >= 0) and np.all(p <= 1)
     f = np.exp(-delta * ((-np.log(p)) ** gamma))
 
     # truncate at [0, 1]
