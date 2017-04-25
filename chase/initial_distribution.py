@@ -3,14 +3,16 @@ import numpy as np
 
 def indifferent_initial_distribution(N, *args):
     """1 at the center state, 0 elsewhere"""
+    assert (N % 2 == 1), "The number of states has to be odd!"
     Z = np.matrix(np.zeros(N))
-    Z[0,(N-1)/2.] = 1.
+    Z[0,(N-1)/2] = 1.
     return Z
 
 
 def uniform_initial_distribution(N, *args):
     """For a given number of states N, return a
     uniform distribution."""
+    assert (N % 2 == 1), "The number of states has to be odd!"
     Z = np.matrix(np.ones(N) / N)
     return Z
 
@@ -20,6 +22,7 @@ def softmax_initial_distribution(N, pars):
 
     tau: inverse temperature (low -> uniform)
     """
+    assert (N % 2 == 1), "The number of states has to be odd!"
     tau = pars.get('tau', 1.)
 
     V = np.arange(N) - (N - 1)/2
@@ -30,10 +33,12 @@ def softmax_initial_distribution(N, pars):
 
 def laplace_initial_distribution(N, pars):
     """Laplace distribution over starting points"""
+    assert (N % 2 == 1), "The number of states has to be odd!"
     p = pars.get('tau', .5)
     p = np.clip(p, 0, 1 - 1e-10)
     S = np.arange(N) - (N - 1)/2
     theta = pars.get('theta')
+    assert (theta == (N-1) / 2), "Number of states does not follow from theta"
 
     def F(x):
         if x < 0:
