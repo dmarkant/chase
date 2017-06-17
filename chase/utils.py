@@ -70,6 +70,10 @@ def pfix(p):
     return np.clip(p, 1e-5, 1 - 1e-5)
 
 
+def sum_neg_log(arr):
+    return -np.sum(np.log(pfix(arr)))
+
+
 def sample_from_discrete(cp):
     r = np.random.random()
     return np.where(r < np.cumsum(cp))[0][0]
