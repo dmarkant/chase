@@ -24,7 +24,7 @@ PARS = {'theta': [.1, 500],
         'sc': [0, 10],
         'r': [0, .1],
         'c': [0, 100],
-        'c_sigma': [0, 40]}
+        'c_sigma': [0, 100]}
 
 
 def freepars(parset, PARS):

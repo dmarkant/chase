@@ -141,13 +141,13 @@ def f(args):
 
 def run_multi():
 
-    SSET = [91, 92]
+    SSET = [162, 174, 180, 195, 199, 205, 209, 210, 214]
     jobs = []
     for sid in SSET:
         for stoprule in ['optional', 'geometric']:
             jobs.append([sid,stoprule])
 
-    r = farm(targetfunc=f, jobs=jobs, num_workers=1)
+    r = farm(targetfunc=f, jobs=jobs, num_workers=8)
     print "result: ", r
 
     # incompleted jobs
