@@ -8,13 +8,15 @@ N_ITER = 1
 PARSETS = {}
 PARSETS['optional'] = [#['theta(cost=low)', 'theta(cost=high)', 'tau', 'c'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c'],
-                       ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma'],
+                       ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c', 'pow_gain'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c', 'r'],
                        ]
 
 PARSETS['geometric'] = [#['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c'],
-                        ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma']
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma']
+                        ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0']
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c']
                         ]
 
@@ -141,13 +143,13 @@ def f(args):
 
 def run_multi():
 
-    SSET = [162, 174, 180, 195, 199, 205, 209, 210, 214]
+    SSET = data.subject.unique()
     jobs = []
     for sid in SSET:
         for stoprule in ['optional', 'geometric']:
             jobs.append([sid,stoprule])
 
-    r = farm(targetfunc=f, jobs=jobs, num_workers=8)
+    r = farm(targetfunc=f, jobs=jobs, num_workers=16)
     print "result: ", r
 
     # incompleted jobs

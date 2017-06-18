@@ -103,22 +103,12 @@ def pweight_prelec(option, pars):
         wrd = np.ediff1d(wr)
         lossdf.w = wrd
 
-    #print q
-    #print r
-    #print wr
-    #print wrd
-
     # put ranked weights back in original order
     weights = np.zeros(n_gains + n_losses)
     for i in range(n_gains):
-        weights[gaindf.iloc[i]['id']] = gaindf.iloc[i]['w']
+        weights[int(gaindf.iloc[i]['id'])] = gaindf.iloc[i]['w']
     for i in range(n_losses):
-        weights[lossdf.iloc[i]['id']] = lossdf.iloc[i]['w']
-
-    #print gaindf
-    #print lossdf
-
-
+        weights[int(lossdf.iloc[i]['id'])] = lossdf.iloc[i]['w']
 
     try:
         assert not np.any(np.isnan(weights)) and np.sum(weights) > 0
@@ -131,7 +121,7 @@ def pweight_prelec(option, pars):
         print dummy
 
     # normalize (in case of mixed option)
-    #weights = weights / np.sum(weights)
+    weights = weights / np.sum(weights)
     weights = np.clip(weights, 0, 1)
     return weights
 

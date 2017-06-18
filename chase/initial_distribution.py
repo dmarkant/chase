@@ -38,7 +38,7 @@ def laplace_initial_distribution(N, pars):
     p = np.clip(p, 0, 1 - 1e-10)
     S = np.arange(N) - (N - 1)/2
     theta = pars.get('theta')
-    assert (theta == (N-1) / 2), "Number of states does not follow from theta"
+    #assert (theta == (N-1) / 2), "Number of states does not follow from theta"
 
     def F(x):
         if x < 0:

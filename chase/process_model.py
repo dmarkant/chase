@@ -28,6 +28,7 @@ class CHASEProcessModel(object):
         choice and sample size distributions"""
 
         calltime = time()
+        np.random.seed()
 
         ### Basic setup
 
@@ -302,6 +303,12 @@ class CHASEProcessModel(object):
                     outcomes[sampled_A] = outcomes_A
                     outcomes[sampled_B] = outcomes_B
 
+                    if 'pow_gain' in pars:
+                        outcomes   = cpt.value_fnc(outcomes, pars)
+                        outcomes_A = cpt.value_fnc(outcomes_A, pars)
+                        outcomes_B = cpt.value_fnc(outcomes_B, pars)
+
+
                 # subjective weighting
                 sv = np.zeros((N, max_T))
                 if self.problemtype is 'multinomial':
@@ -313,13 +320,37 @@ class CHASEProcessModel(object):
                     if pref_units == 'diffs':
                         #c_A = B[0]
                         #c_B = A[0]
+
+
                         c = pars.get('c', 0)
                         c_sigma = pars.get('c_sigma', None)
+                        c_0 = pars.get('c_0', None)
+
                         if c_sigma is not None:
                             #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
                             #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
                             c_A = np.random.normal(loc=B[0], scale=c_sigma, size=N_sampled_A)
                             c_B = np.random.normal(loc=A[0], scale=c_sigma, size=N_sampled_B)
+                            #c_A = np.random.normal(loc=B[0], scale=(sigmaB**c_sigma), size=N_sampled_A)
+                            #c_B = np.random.normal(loc=A[0], scale=(sigmaA**c_sigma), size=N_sampled_B)
+
+                        elif c_0 is not None:
+                            sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
+                            N_A = np.cumsum(sampled_A, axis=1, dtype=float)
+                            mn_A = np.multiply(sum_A, 1/N_A)
+                            mn_A[np.isnan(mn_A)] = c_0
+
+                            sum_B = np.cumsum(np.multiply(sampled_B, outcomes), axis=1)
+                            N_B = np.cumsum(sampled_B, axis=1, dtype=float)
+                            mn_B = np.multiply(sum_B, 1/N_B)
+                            mn_B[np.isnan(mn_B)] = c_0
+
+                            compA = np.multiply(outcomes - mn_B, sampled_A)
+                            compB = np.multiply(outcomes - mn_A, sampled_B)
+
+                            c_A = mn_B
+                            c_B = mn_A
+
                         else:
                             c_A = c
                             c_B = c
@@ -328,9 +359,18 @@ class CHASEProcessModel(object):
                         c_A = 0
                         c_B = 0
 
-                    if 'pow_gain' in pars:
-                        sv[sampled_A] = -1 * (cpt.value_fnc(outcomes_A, pars) - c_A)
-                        sv[sampled_B] =      (cpt.value_fnc(outcomes_B, pars) - c_B)
+
+                    if 'c_0' in pars:
+                        #print c_0
+                        #print sampled_B*1
+                        #print outcomes
+                        compA = np.multiply(outcomes - mn_B, sampled_A)
+                        compB = np.multiply(outcomes - mn_A, sampled_B)
+                        #print compA
+                        #print compB
+                        sv = (-1 * compA) + compB
+                        #print sv
+                        #print dummy
                     else:
                         sv[sampled_A] = -1 * (outcomes_A - c_A)
                         sv[sampled_B] =      (outcomes_B - c_B)
@@ -565,7 +605,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 
