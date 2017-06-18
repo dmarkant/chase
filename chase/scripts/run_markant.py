@@ -9,14 +9,18 @@ PARSETS = {}
 PARSETS['optional'] = [#['theta(cost=low)', 'theta(cost=high)', 'tau', 'c'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma'],
-                       ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0'],
+                       ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0', 'sc'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c_0'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c', 'pow_gain'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c', 'r'],
                        ]
 
 PARSETS['geometric'] = [#['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c'],
-                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma']
-                        ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0']
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma'],
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0']
+                        ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0', 'sc']
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c_0']
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c']
                         ]
 
@@ -125,11 +129,10 @@ def predict(sid, data, problems, stoprule, fitting):
 def run():
 
     SSET=data.subject.unique()
+    SSET = [117]
 
-    for sid in [91, 96, 102, 105, 109, 111, 113, 114, 115, 116, 117,
-                192, 200, 202, 207]:
-        #for stoprule in ['optional', 'geometric']:
-        for stoprule in ['optional']:
+    for sid in SSET:
+        for stoprule in ['optional', 'geometric']:
             fit(sid, data[data.subject==sid], stoprule)
 
 
@@ -149,7 +152,7 @@ def run_multi():
         for stoprule in ['optional', 'geometric']:
             jobs.append([sid,stoprule])
 
-    r = farm(targetfunc=f, jobs=jobs, num_workers=16)
+    r = farm(targetfunc=f, jobs=jobs, num_workers=1)
     print "result: ", r
 
     # incompleted jobs
@@ -159,3 +162,4 @@ def run_multi():
 if __name__=='__main__':
     load_data()
     run_multi()
+    #run()
