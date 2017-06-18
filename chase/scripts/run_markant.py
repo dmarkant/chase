@@ -1,6 +1,7 @@
 from process_model import *
 from fit_process import *
 import pickle
+from farming import *
 
 N_ITER = 1
 
@@ -60,10 +61,10 @@ def fit(sid, data, stoprule):
 
     print 'subject %s [%s]' % (sid, stoprule)
 
-    if stoprule is 'optional':
+    if stoprule == 'optional':
         SIM_ID = 'process_markant_individual_subj%s' % sid
         OUTDIR = 'process_fitresults_markant_individual'
-    elif stoprule is 'geometric':
+    elif stoprule == 'geometric':
         SIM_ID = 'process_planned_markant_individual_subj%s' % sid
         OUTDIR = 'process_planned_fitresults_markant_individual'
 
@@ -97,6 +98,7 @@ def best(sid, stoprule, fitting):
 
 
 def predict(sid, data, problems, stoprule, fitting):
+
     if stoprule is 'optional':
         SIM_ID = 'process_markant_individual_subj%s' % sid
         OUTDIR = 'process_fitresults_markant_individual'
@@ -122,22 +124,36 @@ def run():
 
     SSET=data.subject.unique()
 
-    # run with higher theta
-    #array([ 91,  92,  93,  94,  96,  97,  98,  99, 100, 101, 102, 103, 104,
-    #   105, 106, 107, 109, 110, 111, 112, 113, 114, 115, 116, 117, 119,
-    #   120, 121, 123, 127, 128, 129, 130, 134, 135, 136, 137, 138, 139,
-    #   140, 141, 142, 143, 144, 145, 146, 148, 149, 150, 151, 152, 153,
-    #   154, 155, 158, 159, 161, 162, 163, 166, 169, 170, 173, 174, 175,
-    #   176, 177, 178, 179, 180, 181, 183, 184, 186, 188, 190, 191, 192,
-    #   194, 195, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208,
-    #   209, 210, 211, 213, 214, 215, 216, 217, 218])
-    #for sid in SSET:
-    for sid in [111, 112, 113]:
-        for stoprule in ['optional', 'geometric']:
-        #for stoprule in ['geometric']:
+    for sid in [91, 96, 102, 105, 109, 111, 113, 114, 115, 116, 117,
+                192, 200, 202, 207]:
+        #for stoprule in ['optional', 'geometric']:
+        for stoprule in ['optional']:
             fit(sid, data[data.subject==sid], stoprule)
+
+
+# Run in parallel
+
+def f(args):
+    sid, stoprule = args
+    fit(sid, data[data.subject==sid], stoprule)
+    return 1
+
+
+def run_multi():
+
+    SSET = [91, 92]
+    jobs = []
+    for sid in SSET:
+        for stoprule in ['optional', 'geometric']:
+            jobs.append([sid,stoprule])
+
+    r = farm(targetfunc=f, jobs=jobs, num_workers=1)
+    print "result: ", r
+
+    # incompleted jobs
+    print "incomplete: ", catch_incomplete_jobs(r)
 
 
 if __name__=='__main__':
     load_data()
-    run()
+    run_multi()
