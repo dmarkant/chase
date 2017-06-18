@@ -9,11 +9,11 @@ from collections import OrderedDict
 from scipy.stats.mstats import mquantiles
 
 
-PARS = {'theta': [.1, 500],
+PARS = {'theta': [.1, 300],
         'p_stay': [0, 1, .1],
         'p_stop_geom': [0, 1],
-        'tau': [.000001, 50],
-        'tau_unif': [.001, 500],
+        'tau': [.00001, 50],
+        'tau_unif': [.001, 300],
         'prelec_gamma': [.01, 3],
         'prelec_elevation': [.01, 3],
         'prelec_gamma_loss': [.01, 3],
@@ -21,7 +21,7 @@ PARS = {'theta': [.1, 500],
         'pow_gain': [.01, 1.5],
         'w_loss': [0., 10],
         's': [0, 30],
-        'sc': [0, 10],
+        'sc': [0, 1],
         'r': [0, .1],
         'c': [0, 100],
         'c_0': [0, 100],

@@ -34,10 +34,10 @@ class CHASEProcessModel(object):
 
         N         = pars.get('N', 10000)   # number of simulated trials
         max_T     = pars.get('max_T', 300) # maximum sample size
-        threshold = pars.get('theta', 3)   # decision threshold
+        theta     = pars.get('theta', 3)   # decision threshold
 
         # rescale threshold for each problem?
-        #scale_threshold = pars.get('scale_threshold', False)
+        scale_threshold = pars.get('scale_threshold', False)
 
         # what is accumulated?
         pref_units = pars.get('pref_units', 'diffs')
@@ -48,9 +48,6 @@ class CHASEProcessModel(object):
         # rate of boundary collapse
         r = pars.get('r', 0)
 
-        # threshold for this problem
-        #if scale_threshold: threshold = theta * np.sqrt(sigma2)
-        #else:               threshold = theta
 
         ### Alternative stopping rules
 
@@ -117,21 +114,27 @@ class CHASEProcessModel(object):
                 w_outcomes[0] = w_outcomes[0] - mn
                 w_outcomes[1] = w_outcomes[1] - mn
 
-        #elif self.problemtype is 'normal':
-        #    sigma2 = options[:,1].sum()
+        elif self.problemtype is 'normal':
+            #sigma2 = options[:,1].sum()
+            sigma2 = options[:,1].mean()
 
+        # scale threshold
+        sc = pars.get('sc', 0)
+        threshold = theta * (np.sqrt(sigma2) ** sc)
 
         ### Starting distribution
 
         Z = np.zeros(N)
         if 'tau' in pars:
             tau = pars.get('tau', .001)
-            dx = .01
-            x = np.arange(-1+dx, 1, dx)
-            p = laplace.pdf(x, loc=0, scale=tau)
-            pn = p/p.sum()
-            Z = np.random.choice(x, N, p=pn)
-            Z = Z * 500
+            p = laplace.rvs(loc=0, scale=tau, size=N)
+
+            #dx = .01
+            #x = np.arange(-1+dx, 1, dx)
+            #p = laplace.pdf(x, loc=0, scale=tau)
+            #pn = p/p.sum()
+            #Z = np.random.choice(x, N, p=pn)
+            #Z = Z * 500
             #Z = Z * threshold
 
         elif 'tau_unif' in pars:
@@ -287,9 +290,8 @@ class CHASEProcessModel(object):
                     outcomes[sampled_B] = obj_outcomes[1][observed_B]
                 else:
                     A, B = options
-                    sc = pars.get('sc', 1)
-                    sigmaA = sc * np.sqrt(A[1])
-                    sigmaB = sc * np.sqrt(B[1])
+                    sigmaA = np.sqrt(A[1])
+                    sigmaB = np.sqrt(B[1])
 
                     xmin, xmax = -100, 180
 
