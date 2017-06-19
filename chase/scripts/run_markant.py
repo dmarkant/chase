@@ -8,8 +8,9 @@ N_ITER = 1
 PARSETS = {}
 PARSETS['optional'] = [#['theta(cost=low)', 'theta(cost=high)', 'tau', 'c'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c'],
-                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma'],
-                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c', 'sc'],
+                       ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma'],
+                       ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0'],
                        ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0', 'sc'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c_0'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c', 'pow_gain'],
@@ -17,8 +18,9 @@ PARSETS['optional'] = [#['theta(cost=low)', 'theta(cost=high)', 'tau', 'c'],
                        ]
 
 PARSETS['geometric'] = [#['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c'],
-                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma'],
-                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0']
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c', 'sc'],
+                        ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma'],
+                        ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0'],
                         ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0', 'sc']
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c_0']
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c']
