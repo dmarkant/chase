@@ -319,18 +319,23 @@ class CHASEProcessModel(object):
 
                 elif self.problemtype is 'normal':
 
-                    c = pars.get('c', 0)
+                    #c = pars.get('c', 0)
+
+                    if 'c' in pars:
+                        c = pars.get('c', 0)
+                        c_A = c
+                        c_B = c
 
                     if 'c_sigma' in pars:
                         c_sigma = pars.get('c_sigma')
-
                         #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
                         #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
                         c_A = np.random.normal(loc=B[0], scale=c_sigma, size=N_sampled_A)
                         c_B = np.random.normal(loc=A[0], scale=c_sigma, size=N_sampled_B)
 
-                    elif 'c_0' in pars:
-                        c_0 = pars.get('c_0')
+                    #elif 'c_0' in pars:
+                    else:
+                        c_0 = pars.get('c_0', 45)
 
                         sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
                         N_A = np.cumsum(sampled_A, axis=1, dtype=float)
@@ -348,18 +353,14 @@ class CHASEProcessModel(object):
                         c_A = mn_B
                         c_B = mn_A
 
+
+                    if 'c' in pars or 'c_sigma' in pars:
+                        sv[sampled_A] = -1 * (outcomes_A - c_A)
+                        sv[sampled_B] =      (outcomes_B - c_B)
                     else:
-                        c_A = c
-                        c_B = c
-
-
-                    if 'c_0' in pars:
                         compA = np.multiply(outcomes - mn_B, sampled_A)
                         compB = np.multiply(outcomes - mn_A, sampled_B)
                         sv = (-1 * compA) + compB
-                    else:
-                        sv[sampled_A] = -1 * (outcomes_A - c_A)
-                        sv[sampled_B] =      (outcomes_B - c_B)
 
 
         ### Accumulation
