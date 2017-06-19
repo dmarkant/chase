@@ -10,8 +10,12 @@ PARSETS['optional'] = [
                        # 'tau(cond_color=same)', 'tau(cond_color=diff)', 'c'],
                        #['theta(cost=low)', 'theta(cost=high)',
                        # 'tau_unif(cond_color=same)', 'tau_unif(cond_color=diff)', 'c']
+                       #['theta(cost=low)', 'theta(cost=high)',
+                       # 'tau_unif(cond_color=same)', 'tau_unif(cond_color=diff)', 'c_sigma']
+                       #['theta(cost=low)', 'theta(cost=high)',
+                       # 'tau_unif(cond_color=same)', 'tau_unif(cond_color=diff)', 'c_0']
                        ['theta(cost=low)', 'theta(cost=high)',
-                        'tau_unif(cond_color=same)', 'tau_unif(cond_color=diff)', 'c_sigma']
+                        'tau_unif(cond_color=same)', 'tau_unif(cond_color=diff)', 'c_0', 'sc']
                        #['theta(cost=low)', 'theta(cost=high)',
                        # 'tau(cond_color=same)', 'tau(cond_color=diff)', 'sc', 'c', 'r']
                        ]
@@ -23,6 +27,7 @@ FIXED = {}
 for pref_units in ['sums', 'diffs']:
     FIXED[('optional',pref_units)] = {'pref_units': pref_units,
                                       'stoprule': 'optional',
+                                      'scale_threshold': True,
                                       'max_T': 1000,
                                       'N': 10000}
 
@@ -39,7 +44,7 @@ def load_data():
     data.rename(columns={'sid': 'subject', 'probid': 'problem'}, inplace=True)
     data['choice'] = data.choice.apply(lambda c: 1 if c=='B' else 0)
 
-    probdf = pd.read_csv('/Users/markant/experiments/exp_chase/chase-v3/static/problems_normal.csv', index_col=0)
+    probdf = pd.read_csv('paper/data/markant/problems_normal.csv', index_col=0)
     probdf['mn_diff'] = probdf['mn_B'] - probdf['mn_A']
     probdf['variance'] = probdf['var_A'] # matched variance in both options
 
