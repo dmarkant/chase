@@ -12,6 +12,7 @@ PARSETS['optional'] = [#['theta(cost=low)', 'theta(cost=high)', 'tau', 'c'],
                        ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma'],
                        ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0'],
                        ['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0', 'sc'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'c_0', 'sc'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c_0'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c', 'pow_gain'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c', 'r'],
@@ -22,6 +23,7 @@ PARSETS['geometric'] = [#['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'ta
                         ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma'],
                         ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0'],
                         ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0', 'sc']
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif_rel', 'c_0', 'sc']
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c_0']
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c']
                         ]
@@ -154,7 +156,7 @@ def run_multi():
         for stoprule in ['optional', 'geometric']:
             jobs.append([sid,stoprule])
 
-    r = farm(targetfunc=f, jobs=jobs, num_workers=1)
+    r = farm(targetfunc=f, jobs=jobs, num_workers=14)
     print "result: ", r
 
     # incompleted jobs
