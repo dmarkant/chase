@@ -147,6 +147,12 @@ class CHASEProcessModel(object):
             np.random.shuffle(Z)
             #Z = np.random.uniform(low=(-tau), high=tau, size=N)
 
+        elif 'tau_unif_rel' in pars:
+            tau = pars.get('tau_unif_rel', .001)
+            rng = tau * (threshold - .001)
+            Z = np.linspace(-rng, rng, num=N)
+            np.random.shuffle(Z)
+
         ### Simulate outcomes
 
         if obs is not None:
