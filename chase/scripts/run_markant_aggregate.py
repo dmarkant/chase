@@ -44,7 +44,7 @@ def load_data():
     data.rename(columns={'sid': 'subject', 'probid': 'problem'}, inplace=True)
     data['choice'] = data.choice.apply(lambda c: 1 if c=='B' else 0)
 
-    probdf = pd.read_csv('/Users/markant/experiments/exp_chase/chase-v3/static/problems_normal.csv', index_col=0)
+    probdf = pd.read_csv('paper/data/markant/problems_normal.csv', index_col=0)
     probdf['mn_diff'] = probdf['mn_B'] - probdf['mn_A']
     probdf['variance'] = probdf['var_A'] # matched variance in both options
 
