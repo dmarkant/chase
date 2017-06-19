@@ -30,13 +30,13 @@ class CHASEProcessModel(object):
 
         ### Basic setup
         np.random.seed()
-        N         = pars.get('N', 10000)   # number of simulated trials
-        max_T     = pars.get('max_T', 300) # maximum sample size
+        N     = pars.get('N', 10000)   # number of simulated trials
+        max_T = pars.get('max_T', 300) # maximum sample size
 
 
         ### Decision boundary (optional stopping)
-        theta     = pars.get('theta', 3)   # decision threshold
-        r = pars.get('r', 0)               # rate of boundary collapse
+        theta = pars.get('theta', 3)   # decision threshold
+        r     = pars.get('r', 0)               # rate of boundary collapse
 
         # what is accumulated?
         pref_units = pars.get('pref_units', 'diffs')
@@ -121,7 +121,7 @@ class CHASEProcessModel(object):
 
         Z = np.zeros(N)
         if 'tau' in pars:
-            tau = pars.get('tau', .001)
+            tau = pars.get('tau')
             p = laplace.rvs(loc=0, scale=tau, size=N)
 
             #dx = .01
@@ -131,6 +131,11 @@ class CHASEProcessModel(object):
             #Z = np.random.choice(x, N, p=pn)
             #Z = Z * 500
             #Z = Z * threshold
+
+        elif 'tau_rel' in pars:
+            tau = pars.get('tau_rel')
+            tau = tau * (np.sqrt(sigma2) ** sc)
+            p = laplace.rvs(loc=0, scale=tau, size=N)
 
         elif 'tau_unif' in pars:
             #tau = pars.get('tau_unif', .001)
