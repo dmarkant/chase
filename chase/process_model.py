@@ -27,34 +27,25 @@ class CHASEProcessModel(object):
         """Simulate process model to get predicted
         choice and sample size distributions"""
 
-        calltime = time()
-        np.random.seed()
 
         ### Basic setup
-
+        np.random.seed()
         N         = pars.get('N', 10000)   # number of simulated trials
         max_T     = pars.get('max_T', 300) # maximum sample size
-        theta     = pars.get('theta', 3)   # decision threshold
 
-        # rescale threshold for each problem?
-        scale_threshold = pars.get('scale_threshold', False)
+
+        ### Decision boundary (optional stopping)
+        theta     = pars.get('theta', 3)   # decision threshold
+        r = pars.get('r', 0)               # rate of boundary collapse
 
         # what is accumulated?
         pref_units = pars.get('pref_units', 'diffs')
 
-        # are the first two samples drawn from different options?
-        switchfirst = pars.get('switchfirst', False)
-
-        # rate of boundary collapse
-        r = pars.get('r', 0)
-
 
         ### Alternative stopping rules
 
-        # fixed stopping rule
+        # fixed sample size
         if self.stoprule=='fixedT':
-
-            # fixed sample size
             stop_T = pars.get('stop_T', 2)
             max_T  = stop_T
 
@@ -73,6 +64,7 @@ class CHASEProcessModel(object):
         else:
             stop_T = None
 
+
         ### Search
 
         # probability of sampling each option
@@ -82,6 +74,9 @@ class CHASEProcessModel(object):
         # if p_switch is specified, it will be used to generate
         # sequences of observations (rather than p_sample_H and p_sample_L)
         p_switch   = pars.get('p_switch', None)
+
+        # are the first two samples drawn from different options?
+        switchfirst = pars.get('switchfirst', False)
 
 
         ### Sequential weights
@@ -94,8 +89,8 @@ class CHASEProcessModel(object):
             values = np.array([cpt.value_fnc(option[:,0], pars) for option in options])
             v = np.array([np.multiply(weights[i], values[i]) for i in range(len(options))])
             V = v.sum(axis=1)
-            #evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
-            #sigma2 = np.max([np.sum(evar), 1e-10])
+            evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
+            sigma2 = np.max([np.sum(evar), 1e-10])
 
             # sequential weights
             omega = []
@@ -104,7 +99,6 @@ class CHASEProcessModel(object):
             omega = np.array(omega)
             omega[np.isnan(omega)] = 0
             w_outcomes = np.array([np.multiply(omega[i], values[i]) for i in range(len(options))])
-
 
             # if accumulating differences, subtract the mean of the other option
             if pref_units == 'diffs':
@@ -121,6 +115,7 @@ class CHASEProcessModel(object):
         # scale threshold
         sc = pars.get('sc', 0)
         threshold = theta * (np.sqrt(sigma2) ** sc)
+
 
         ### Starting distribution
 
@@ -149,28 +144,26 @@ class CHASEProcessModel(object):
 
         elif 'tau_unif_rel' in pars:
             tau = pars.get('tau_unif_rel', .001)
-            rng = tau * (threshold - .001)
+            #rng = tau * (threshold - .001)
+            rng = tau * (np.sqrt(sigma2) ** sc)
             Z = np.linspace(-rng, rng, num=N)
             np.random.shuffle(Z)
 
-        ### Simulate outcomes
+
+        ### Simulate
 
         if obs is not None:
 
             # assume a single sequence of known observations
             sampled_option = obs['option'].values
-            outcomes = obs['outcome'].values
-            max_T = outcomes.shape[0]
-
-            sgn = 2*sampled_option - 1
-            sv = np.zeros(outcomes.shape)
+            outcomes       = obs['outcome'].values
+            max_T          = outcomes.shape[0]
+            sgn            = 2*sampled_option - 1
+            sv             = np.zeros(outcomes.shape)
 
             if self.problemtype is 'normal':
 
-                if pref_units == 'diffs':
-                    c = pars.get('c', 0)
-                else:
-                    c = 0
+                c = pars.get('c', 0)
 
                 # add weighting and criterion here
                 sv = cpt.value_fnc(outcomes - c, pars)
@@ -299,13 +292,9 @@ class CHASEProcessModel(object):
                     sigmaA = np.sqrt(A[1])
                     sigmaB = np.sqrt(B[1])
 
-                    xmin, xmax = -100, 180
-
                     # weird conversion for np.truncnorm
                     lowerA, upperA = (X_MIN - A[0]) / sigmaA, (X_MAX - A[0]) / sigmaA
                     lowerB, upperB = (X_MIN - B[0]) / sigmaB, (X_MAX - B[0]) / sigmaB
-
-                    start = time()
                     outcomes_A = np.round(truncnorm.rvs(lowerA, upperA, loc=A[0], scale=sigmaA, size=N_sampled_A))
                     outcomes_B = np.round(truncnorm.rvs(lowerB, upperB, loc=B[0], scale=sigmaB, size=N_sampled_B))
                     outcomes[sampled_A] = outcomes_A
@@ -325,60 +314,44 @@ class CHASEProcessModel(object):
 
                 elif self.problemtype is 'normal':
 
-                    if pref_units == 'diffs':
-                        #c_A = B[0]
-                        #c_B = A[0]
+                    c = pars.get('c', 0)
 
+                    if 'c_sigma' in pars:
+                        c_sigma = pars.get('c_sigma')
 
-                        c = pars.get('c', 0)
-                        c_sigma = pars.get('c_sigma', None)
-                        c_0 = pars.get('c_0', None)
+                        #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
+                        #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
+                        c_A = np.random.normal(loc=B[0], scale=c_sigma, size=N_sampled_A)
+                        c_B = np.random.normal(loc=A[0], scale=c_sigma, size=N_sampled_B)
 
-                        if c_sigma is not None:
-                            #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
-                            #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
-                            c_A = np.random.normal(loc=B[0], scale=c_sigma, size=N_sampled_A)
-                            c_B = np.random.normal(loc=A[0], scale=c_sigma, size=N_sampled_B)
-                            #c_A = np.random.normal(loc=B[0], scale=(sigmaB**c_sigma), size=N_sampled_A)
-                            #c_B = np.random.normal(loc=A[0], scale=(sigmaA**c_sigma), size=N_sampled_B)
+                    elif 'c_0' in pars:
+                        c_0 = pars.get('c_0')
 
-                        elif c_0 is not None:
-                            sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
-                            N_A = np.cumsum(sampled_A, axis=1, dtype=float)
-                            mn_A = np.multiply(sum_A, 1/N_A)
-                            mn_A[np.isnan(mn_A)] = c_0
+                        sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
+                        N_A = np.cumsum(sampled_A, axis=1, dtype=float)
+                        mn_A = np.multiply(sum_A, 1/N_A)
+                        mn_A[np.isnan(mn_A)] = c_0
 
-                            sum_B = np.cumsum(np.multiply(sampled_B, outcomes), axis=1)
-                            N_B = np.cumsum(sampled_B, axis=1, dtype=float)
-                            mn_B = np.multiply(sum_B, 1/N_B)
-                            mn_B[np.isnan(mn_B)] = c_0
+                        sum_B = np.cumsum(np.multiply(sampled_B, outcomes), axis=1)
+                        N_B = np.cumsum(sampled_B, axis=1, dtype=float)
+                        mn_B = np.multiply(sum_B, 1/N_B)
+                        mn_B[np.isnan(mn_B)] = c_0
 
-                            compA = np.multiply(outcomes - mn_B, sampled_A)
-                            compB = np.multiply(outcomes - mn_A, sampled_B)
+                        compA = np.multiply(outcomes - mn_B, sampled_A)
+                        compB = np.multiply(outcomes - mn_A, sampled_B)
 
-                            c_A = mn_B
-                            c_B = mn_A
-
-                        else:
-                            c_A = c
-                            c_B = c
+                        c_A = mn_B
+                        c_B = mn_A
 
                     else:
-                        c_A = 0
-                        c_B = 0
+                        c_A = c
+                        c_B = c
 
 
                     if 'c_0' in pars:
-                        #print c_0
-                        #print sampled_B*1
-                        #print outcomes
                         compA = np.multiply(outcomes - mn_B, sampled_A)
                         compB = np.multiply(outcomes - mn_A, sampled_B)
-                        #print compA
-                        #print compB
                         sv = (-1 * compA) + compB
-                        #print sv
-                        #print dummy
                     else:
                         sv[sampled_A] = -1 * (outcomes_A - c_A)
                         sv[sampled_B] =      (outcomes_B - c_B)
@@ -386,18 +359,19 @@ class CHASEProcessModel(object):
 
         ### Accumulation
 
-        # add starting states
+        # add starting states to first outcome
         sv[:,0] = sv[:,0] + Z
 
         # p_stay
-        p_stay = pars.get('p_stay', 0)
-        if p_stay > 0:
-            attended = np.random.binomial(1, 1-p_stay, size=(N, max_T))
-            sv = np.multiply(sv, attended)
+        #p_stay = pars.get('p_stay', 0)
+        #if p_stay > 0:
+        #    attended = np.random.binomial(1, 1-p_stay, size=(N, max_T))
+        #    sv = np.multiply(sv, attended)
 
 
         # accumulate
         P = np.cumsum(sv, axis=1)
+
 
         ### Stopping
 
@@ -508,7 +482,6 @@ class CHASEProcessModel(object):
                 if self.problemtype is 'multinomial':
                     outcome_ind    = [observed[i][:(samplesize[i]+1)] for i in range(samplesize.shape[0])]
 
-            #print 'total time:', (time() - calltime)
 
             return {'choice': choice,
                     'samplesize': samplesize + 1,
@@ -530,13 +503,7 @@ class CHASEProcessModel(object):
 
         nonspec = pars['nonspec']
         spec = pars['spec']
-        #excluded = ['fitting', 'nonspec']
-        #nonspec = filter(lambda k: k.count('(')==0 and k not in excluded, pars)
-
-
-        start = time()
         factors = []
-        #spec = filter(lambda k: k.count('(')>0, pars)
         for k in spec:
             sp = k.rstrip(')').split('(')
             p = sp[0]
@@ -576,7 +543,6 @@ class CHASEProcessModel(object):
                 pid = probdata['problem'].values[0]
                 pars['probid'] = pid
                 grppars = {}
-                #nonspec = filter(lambda k: k.count('(')==0, pars)
                 for k in nonspec: grppars[k] = pars[k]
 
                 spec = filter(lambda k: k.count('(')>0, pars)
@@ -617,221 +583,8 @@ class CHASEProcessModel(object):
             return nllh
 
 
-"""
-def simulate_process(problems, pars={}, trace=False, relfreq=False,
-                     problemtype='multinomial', minsamplesize=1):
-
-    drift = pars['drift']
-    pref_units = pars['pref_units']
-    N = pars.get('N', 10000) # number of runs
-
-    # threshold
-    theta = pars.get('theta', 1) # normalized threshold
-
-    # unbiased starting points
-    tau = pars.get('tau', 1.)
-
-    # noise
-    p_stay = pars.get('p_stay', 0.)
-
-    # probability of sampling each option
-    p_sample_H = pars.get('c', .5)
-    p_sample_L = 1 - p_sample_H
-
-    # output
-    samplesize = {p: np.zeros(N) for p in problems}
-    choices    = {p: np.zeros(N) for p in problems}
-
-    traces = {}
-    problems_exp = {}
-    thresholds = {}
-
-
-    # scale threshold based on problem set
-    sigmas = {}
-    means = {}
-    m = CHASEModel(drift=pars['drift'],
-                   startdist='laplace',
-                   problems=problems,
-                   problemtype=problemtype)
-    for pid in problems:
-        r = m.drift.evaluate(problems[pid],
-                             {'pref_units': pref_units, 'optiontype': problemtype})
-        sigmas[pid] = np.sqrt(r['sigma2'])
-        means[pid] = r['V']
-
-    sc = np.mean(sigmas.values())
-    threshold = theta * sc
-    tau = tau * (sc*2)
-
-    for p in problems:
-
-        problem = problems[p]
-        problems_exp[p] = []
-        traces[p] = []
-
-        #sc = sigmas[p]
-        #threshold = theta * sc
-        #tau = tau * (sc*2)
-
-        #print p, threshold
-        thresholds[p] = threshold
-        V = means[p]
-
-
-        Z = np.zeros(N)
-
-        # weighting functions
-        if problemtype=='multinomial':
-            pass
-            #weights = np.array([cpt.pweight_prelec(option, pars) for option in problem])
-            #values = np.array([cpt.value_fnc(option[:,0], pars) for option in problem])
-            #v = np.array([np.multiply(weights[i], values[i]) for i in range(len(problem))])
-            #evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(problem))])
-            #sigma2 = np.max([np.sum(evar), 1e-10])
-            #sigma2 = np.mean(evar)
-
-            # sequential weights
-            #omega = []
-            #for i, option in enumerate(problem):
-            #    w = weights[i]
-            #    omega.append(w * 1./option[:,1])
-            #omega = np.array(omega)
-
-
-
-        for i in np.arange(N):
-
-            if problemtype=='multinomial':
-                prob_exp = deepcopy(problem)
-                for opt in prob_exp:
-                    opt[:,1] = 0
-
-            # sample initial starting point
-            #pref = threshold + 1
-            #while pref > threshold or pref < -threshold:
-            #    pref = np.random.laplace(loc=0, scale=tau)
-            pref = 0
-            traces[p].append([deepcopy(pref)])
-
-            r = np.random.random()
-            if r < .5:
-                first2 = [0, 1]
-            else:
-                first2 = [1, 0]
-
-            # store outcomes
-            seen = [[], []]
-
-
-            steps = 0
-            while (steps < minsamplesize) or (pref < threshold and pref > -threshold):
-                steps += 1
-
-                #if steps==0 and (pref <= -threshold or pref >= threshold):
-                if False:
-                    pass
-                else:
-
-                    # make sure each option is sampled at least once
-                    #if steps==1:
-                    #    opt = first2[0]
-                    #elif steps==2:
-                    #    opt = first2[1]
-                    #else:
-                        # randomly pick an option to sample
-                    opt = np.random.choice([0, 1], p=[p_sample_L, p_sample_H])
-
-                    #opt = np.random.choice([0, 1], p=[p_sample_L, p_sample_H])
-                    sgn = [-1, 1][opt]
-
-                    # generate and evaluate an outcome
-                    if problemtype=='multinomial':
-                        outcome_i = np.random.choice(range(problem[opt].shape[0]), 1,
-                                                        p=problem[opt,:,1])[0]
-                        outcome = problem[opt,outcome_i,0]
-
-                        # increment the relative frequency for this outcome
-                        prob_exp[opt,outcome_i,1] += 1
-
-                    elif problemtype=='normal':
-
-                        mu, var = problem[opt]
-                        outcome = np.floor(np.random.normal(mu, np.sqrt(var)))
-
-                    # store outcome
-                    seen[opt].append(outcome)
-
-                    # get reference point
-                    if opt==0:
-                        #ref = np.mean(seen[1]) if len(seen[1])>0 else 0
-                        ref = V[1]
-                    else:
-                        #ref = np.mean(seen[0]) if len(seen[0])>0 else 0
-                        ref = V[0]
-
-                    if np.random.random() > p_stay:
-                        if problemtype=='multinomial':
-                            # weighting
-                            u = outcome
-                            #u = cpt.value_fnc(outcome, pars)
-                            #om = omega[opt,outcome_i]
-                        elif problemtype=='normal':
-                            u = outcome
-
-                        # update preference
-                        if pref_units == 'sums':
-                            pref += (sgn*(u))
-
-                        elif pref_units == 'diffs':
-
-                            delta = u - ref
-                            #if opt==0:
-                            #    delta = (u - V[1])
-                            #else:
-                            #    delta = (u - V[0])
-                            pref += sgn*delta
-
-                    traces[p][-1].append(deepcopy(pref))
-
-            if pref <= -threshold:
-                choice = 0
-            elif pref >= threshold:
-                choice = 1
-            else:
-                print pref, threshold
-
-
-            #if pref > 0:
-            #    choice = 1
-            #elif pref < 0:
-            #    choice = 0
-            #else:
-            #    choice = np.random.choice([0, 1])
-
-            samplesize[p][i] = steps
-            choices[p][i] = choice
-
-            if problemtype=='multinomial':
-                for opt in prob_exp:
-                    opt[:,1] = opt[:,1]/opt[:,1].sum()
-                problems_exp[p].append(prob_exp)
-
-    return {'samplesize': samplesize,
-            'choices': choices,
-            'traces': traces,
-            'thresholds': thresholds,
-            'relfreq': problems_exp}
-"""
-
-
 if __name__=='__main__':
 
-
-    # options are two normal distributions, each [m, sd]
-    #problems = np.array([[[3, 1.], [1, 1.]]])
-
-    #simulate_process(problems)
 
     problems = {}
     arr = np.genfromtxt('paper/data/six_problems.csv', delimiter=',')
