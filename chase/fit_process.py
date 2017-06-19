@@ -7,14 +7,14 @@ from random import uniform
 from scipy.optimize import minimize, fmin, differential_evolution
 from collections import OrderedDict
 from scipy.stats.mstats import mquantiles
+from time import time
 
-
-PARS = {'theta': [.1, 300],
+PARS = {'theta': [.1, 200],
         'p_stay': [0, 1, .1],
         'p_stop_geom': [0, 1],
         'tau': [.00001, 50],
         'tau_unif': [.001, 300],
-        'tau_unif_rel': [.001, 1],
+        'tau_unif_rel': [.001, 200],
         'prelec_gamma': [.01, 3],
         'prelec_elevation': [.01, 3],
         'prelec_gamma_loss': [.01, 3],
@@ -159,7 +159,7 @@ def predict_from_result(model, problems, data, name, fixed={}, fitting=[], group
         sp = k.rstrip(')').split('(')
         p = sp[0]
         f, value = sp[1].split('=')
-        factors.append(f)
+        if f not in factors: factors.append(f)
         ss = data[data[f]==value]
         data.loc[data[f]==value,p] = [best[k] for _ in range(ss.shape[0])]
 
@@ -189,7 +189,7 @@ def predict_from_result(model, problems, data, name, fixed={}, fitting=[], group
             # store predictions
             data.loc[grp.index,'pred_cp']      = np.round(cp, 3)
             data.loc[grp.index,'pred_ss(.25)'] = ss[0]
-            data.loc[grp.index,'pred_ss(.5)'] = ss[1]
+            data.loc[grp.index,'pred_ss(.5)']  = ss[1]
             data.loc[grp.index,'pred_ss(.75)'] = ss[2]
 
         return data
