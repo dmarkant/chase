@@ -24,6 +24,7 @@ PARS = {'theta': [.1, 200],
         'w_loss': [0., 10],
         's': [0, 30],
         'sc': [0, 1],
+        'sc2': [0, 10],
         'r': [0, .1],
         'c': [0, 100],
         'c_0': [0, 100],
@@ -192,6 +193,25 @@ def predict_from_result(model, problems, data, name, fixed={}, fitting=[], group
             data.loc[grp.index,'pred_ss(.25)'] = ss[0]
             data.loc[grp.index,'pred_ss(.5)']  = ss[1]
             data.loc[grp.index,'pred_ss(.75)'] = ss[2]
+
+            # store predicted sample size conditional on choice
+            ind_L = np.where(r['choice']==0)[0]
+            ind_H = np.where(r['choice']==1)[0]
+
+            if len(ind_L) > 0:
+                ss_L = mquantiles(r['samplesize'][ind_L])
+            else:
+                ss_L = [np.nan, np.nan, np.nan]
+            if len(ind_H) > 0:
+                ss_H = mquantiles(r['samplesize'][ind_H])
+            else:
+                ss_H = [np.nan, np.nan, np.nan]
+            data.loc[grp.index,'pred_ss_L(.25)'] = ss_L[0]
+            data.loc[grp.index,'pred_ss_L(.5)']  = ss_L[1]
+            data.loc[grp.index,'pred_ss_L(.75)'] = ss_L[2]
+            data.loc[grp.index,'pred_ss_H(.25)'] = ss_H[0]
+            data.loc[grp.index,'pred_ss_H(.5)']  = ss_H[1]
+            data.loc[grp.index,'pred_ss_H(.75)'] = ss_H[2]
 
         return data
 

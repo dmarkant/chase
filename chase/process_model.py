@@ -112,10 +112,19 @@ class CHASEProcessModel(object):
             #sigma2 = options[:,1].sum()
             sigma2 = options[:,1].mean()
 
-        # scale threshold
-        sc = pars.get('sc', 0)
-        threshold = theta * (np.sqrt(sigma2) ** sc)
+        # scale by variance
+        if 'sc' in pars:
+            # raised to power
+            sc = pars.get('sc')
+            variance_scale = np.sqrt(sigma2) ** sc
+        elif 'sc2' in pars:
+            # multiplicative
+            sc = pars.get('sc2')
+            variance_scale = np.sqrt(sigma2) * sc
+        else:
+            variance_scale = 1
 
+        threshold = theta * variance_scale
 
         ### Starting distribution
 
@@ -134,7 +143,7 @@ class CHASEProcessModel(object):
 
         elif 'tau_rel' in pars:
             tau = pars.get('tau_rel')
-            tau = tau * (np.sqrt(sigma2) ** sc)
+            tau = tau * variance_scale
             p = laplace.rvs(loc=0, scale=tau, size=N)
 
         elif 'tau_unif' in pars:
@@ -150,7 +159,7 @@ class CHASEProcessModel(object):
         elif 'tau_unif_rel' in pars:
             tau = pars.get('tau_unif_rel', .001)
             #rng = tau * (threshold - .001)
-            rng = tau * (np.sqrt(sigma2) ** sc)
+            rng = tau * variance_scale
             Z = np.linspace(-rng, rng, num=N)
             np.random.shuffle(Z)
 
