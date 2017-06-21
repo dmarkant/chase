@@ -109,8 +109,16 @@ class CHASEProcessModel(object):
                 w_outcomes[1] = w_outcomes[1] - mn
 
         elif self.problemtype is 'normal':
-            #sigma2 = options[:,1].sum()
-            sigma2 = options[:,1].mean()
+
+            if 'pow_gain' in pars:
+                w_options = np.array([[0,0],[0,0]])
+                for i in range(2):
+                    ev, evar = cpt.normal_raised_to_power(options[i], pars['pow_gain'])
+                    w_options[i] = np.array([ev, evar])
+                sigma2 = w_options[:,1].mean()
+            else:
+                #sigma2 = options[:,1].sum()
+                sigma2 = options[:,1].mean()
 
         # scale by variance
         if 'sc' in pars:
@@ -336,6 +344,7 @@ class CHASEProcessModel(object):
                         c_B = c
 
                     if 'c_sigma' in pars:
+                        if 'pow_gain' in pars: A, B = w_options
                         c_sigma = pars.get('c_sigma')
                         #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
                         #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
@@ -594,7 +603,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 
