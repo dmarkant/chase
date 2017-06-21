@@ -43,7 +43,7 @@ def freepars(parset, PARS):
 
 def fit_mlh(model, problems, data, name,
             fixed={}, fitting=[], niter=5, ftol=.001,
-            outdir='.', method='Nelder-Mead', save=True, quiet=False):
+            outdir='.', method='DE', save=True, quiet=False):
     """Use maximum likelihood to fit CHASE model"""
     fitting = freepars(fitting, PARS)
     sim_id = sim_id_str(name, fixed, fitting)
@@ -87,12 +87,13 @@ def fit_mlh(model, problems, data, name,
                 init.append(uniform(fitting[p][0], fitting[p][1]))
             bounds.append((fitting[p][0], fitting[p][1]))
 
-        #f = minimize(model.nloglik_opt, init, (problems, data, pars,),
-        #             method=method, options={'ftol': ftol})
-
-        f = differential_evolution(model.nloglik_opt, bounds,
-                                   args=(problems, data, pars,),
-                                   disp=True, polish=False)
+        if method == 'Nelder-Mead':
+            f = minimize(model.nloglik_opt, init, (problems, data, pars,),
+                        method=method, options={'ftol': ftol})
+        elif method == 'DE':
+            f = differential_evolution(model.nloglik_opt, bounds,
+                                       args=(problems, data, pars,),
+                                       disp=True, polish=False)
 
         fitdf.ix[i,'success'] = f['success']
         fitdf.ix[i,'nllh'] = f['fun']

@@ -34,18 +34,15 @@ class CHASEProcessModel(object):
         max_T = pars.get('max_T', 300) # maximum sample size
 
 
-        ### Decision boundary (optional stopping)
-        theta = pars.get('theta', 3)   # decision threshold
-        r     = pars.get('r', 0)               # rate of boundary collapse
+        ### Stopping rules
 
-        # what is accumulated?
-        pref_units = pars.get('pref_units', 'diffs')
-
-
-        ### Alternative stopping rules
+        if self.stoprule == 'optional':
+            theta  = pars.get('theta', 3)   # decision threshold (optional only)
+            r      = pars.get('r', 0)       # rate of boundary collapse (optional only)
+            stop_T = None
 
         # fixed sample size
-        if self.stoprule=='fixedT':
+        elif self.stoprule=='fixedT':
             stop_T = pars.get('stop_T', 2)
             max_T  = stop_T
 
@@ -60,9 +57,6 @@ class CHASEProcessModel(object):
 
             # don't go past max_T
             stop_T[np.where(stop_T > max_T)[0]] = max_T
-
-        else:
-            stop_T = None
 
 
         ### Search
@@ -101,12 +95,12 @@ class CHASEProcessModel(object):
             w_outcomes = np.array([np.multiply(omega[i], values[i]) for i in range(len(options))])
 
             # if accumulating differences, subtract the mean of the other option
-            if pref_units == 'diffs':
-                #w_outcomes[0] = w_outcomes[0] - V[1]
-                #w_outcomes[1] = w_outcomes[1] - V[0]
-                mn = (V[1] + V[0])/2
-                w_outcomes[0] = w_outcomes[0] - mn
-                w_outcomes[1] = w_outcomes[1] - mn
+            #if pref_units == 'diffs':
+            #    #w_outcomes[0] = w_outcomes[0] - V[1]
+            #    #w_outcomes[1] = w_outcomes[1] - V[0]
+            #    mn = (V[1] + V[0])/2
+            #    w_outcomes[0] = w_outcomes[0] - mn
+            #    w_outcomes[1] = w_outcomes[1] - mn
 
         elif self.problemtype is 'normal':
 
@@ -115,9 +109,9 @@ class CHASEProcessModel(object):
                 for i in range(2):
                     ev, evar = cpt.normal_raised_to_power(options[i], pars['pow_gain'])
                     w_options[i] = np.array([ev, evar])
-                sigma2 = w_options[:,1].sum()
+                sigma2 = w_options[:,1].mean()
             else:
-                sigma2 = options[:,1].sum()
+                sigma2 = options[:,1].mean()
 
         # scale by variance
         if 'sc' in pars:
@@ -205,7 +199,7 @@ class CHASEProcessModel(object):
         else:
             # otherwise, simulate sampling from options
 
-            if not trackobs and self.problemtype is 'multinomial' and p_switch is None:
+            if False and not trackobs and self.problemtype is 'multinomial' and p_switch is None:
                 sampled_option = None
                 outcomes = None
 
@@ -306,8 +300,14 @@ class CHASEProcessModel(object):
                 outcomes = np.zeros((N, max_T))
                 if self.problemtype is 'multinomial':
                     obj_outcomes = options[:,:,0]
-                    outcomes[sampled_A] = obj_outcomes[0][observed_A]
-                    outcomes[sampled_B] = obj_outcomes[1][observed_B]
+                    #outcomes[sampled_A] = obj_outcomes[0][observed_A]
+                    #outcomes[sampled_B] = obj_outcomes[1][observed_B]
+
+                    # note weighting already done above
+                    outcomes[sampled_A] = w_outcomes[0][observed_A]
+                    outcomes[sampled_B] = w_outcomes[1][observed_B]
+                    outcomes_A = outcomes[sampled_A]
+                    outcomes_B = outcomes[sampled_B]
                 else:
                     A, B = options
                     sigmaA = np.sqrt(A[1])
@@ -327,15 +327,59 @@ class CHASEProcessModel(object):
                         outcomes_B = cpt.value_fnc(outcomes_B, pars)
 
 
-                # subjective weighting
+                # comparison
                 sv = np.zeros((N, max_T))
+
+                if 'c' in pars:
+                    c = pars.get('c')
+                    sv[sampled_A] = -1 * (outcomes_A - c)
+                    sv[sampled_B] =      (outcomes_B - c)
+
+                elif 'c_sigma' in pars:
+
+                    # figure out where option means are coming from
+                    if self.problemtype is 'multinomial':
+                        A, B = V
+                    elif self.problemtype is 'normal':
+                        if 'pow_gain' in pars: A, B = w_options
+                        else: A, B = options
+
+                    c_sigma = pars.get('c_sigma')
+                    #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
+                    #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
+                    c_A = np.random.normal(loc=B[0], scale=c_sigma, size=N_sampled_A)
+                    c_B = np.random.normal(loc=A[0], scale=c_sigma, size=N_sampled_B)
+                    sv[sampled_A] = -1 * (outcomes_A - c_A)
+                    sv[sampled_B] =      (outcomes_B - c_B)
+
+
+                elif 'c_0' in pars:
+                    c_0 = pars.get('c_0', 45)
+
+                    sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
+                    N_A = np.cumsum(sampled_A, axis=1, dtype=float)
+                    mn_A = np.multiply(sum_A, 1/N_A)
+                    mn_A[np.isnan(mn_A)] = c_0
+
+                    sum_B = np.cumsum(np.multiply(sampled_B, outcomes), axis=1)
+                    N_B = np.cumsum(sampled_B, axis=1, dtype=float)
+                    mn_B = np.multiply(sum_B, 1/N_B)
+                    mn_B[np.isnan(mn_B)] = c_0
+
+                    compA = np.multiply(outcomes - mn_B, sampled_A)
+                    compB = np.multiply(outcomes - mn_A, sampled_B)
+
+                    #compA = np.multiply(outcomes - mn_B, sampled_A)
+                    #compB = np.multiply(outcomes - mn_A, sampled_B)
+                    sv = (-1 * compA) + compB
+
+
+                """
                 if self.problemtype is 'multinomial':
                     sv[sampled_A] = -1 * w_outcomes[0][observed_A]
                     sv[sampled_B] =      w_outcomes[1][observed_B]
 
                 elif self.problemtype is 'normal':
-
-                    #c = pars.get('c', 0)
 
                     if 'c' in pars:
                         c = pars.get('c', 0)
@@ -378,7 +422,7 @@ class CHASEProcessModel(object):
                         compA = np.multiply(outcomes - mn_B, sampled_A)
                         compB = np.multiply(outcomes - mn_A, sampled_B)
                         sv = (-1 * compA) + compB
-
+                """
 
         ### Accumulation
 
@@ -428,7 +472,7 @@ class CHASEProcessModel(object):
                 n_pos = np.sum(P[nodecision,max_T-1] > 0)
                 n_eq = np.sum(P[nodecision,max_T-1] == 0)
                 n_neg = np.sum(P[nodecision,max_T-1] < 0)
-                assert n_eq == 0, "reached max_T with preference of 0"
+                #assert n_eq == 0, "reached max_T with preference of 0"
 
                 crossed[nodecision,max_T-1] +=  1*(P[nodecision,max_T-1] >= 0)
                 crossed[nodecision,max_T-1] += -1*(P[nodecision,max_T-1] < 0)
@@ -602,7 +646,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 
