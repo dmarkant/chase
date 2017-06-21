@@ -1,0 +1,2 @@
+,iteration,success,nllh,k,N,bic,c_0,sc2,tau_unif_rel,theta(cost=high),theta(cost=low)
+0,0,True,69.8867532761,5,24,155.663775704,44.9366762262,0.0561846476291,68.5661135453,87.0009341326,120.756797289
