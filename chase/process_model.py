@@ -132,8 +132,7 @@ class CHASEProcessModel(object):
         Z = np.zeros(N)
         if 'tau' in pars:
             tau = pars.get('tau')
-            p = laplace.rvs(loc=0, scale=tau, size=N)
-
+            Z = laplace.rvs(loc=0, scale=tau, size=N)
             #dx = .01
             #x = np.arange(-1+dx, 1, dx)
             #p = laplace.pdf(x, loc=0, scale=tau)
@@ -330,6 +329,59 @@ class CHASEProcessModel(object):
                 # comparison
                 sv = np.zeros((N, max_T))
 
+                # noise
+                if 'c_sigma' in pars:
+                    c_sigma = pars.get('c_sigma')
+                    err_A = np.random.normal(loc=0, scale=c_sigma, size=outcomes_A.shape)
+                    err_B = np.random.normal(loc=0, scale=c_sigma, size=outcomes_B.shape)
+                else:
+                    err_A = np.zeros(outcomes_A.size)
+                    err_B = np.zeros(outcomes_B.size)
+
+                # criteria for each option
+                if 'c' in pars:
+                    # compare to constant
+                    c = pars.get('c')
+                    c_A = c * np.ones(outcomes_A.shape)
+                    c_B = c * np.ones(outcomes_B.shape)
+
+                elif 'c_0' in pars:
+                    # compare to sample mean
+                    raise NotImplementedError, "need to fix for c_0"
+                    c_0 = pars.get('c_0', 45)
+
+                    sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
+                    N_A = np.cumsum(sampled_A, axis=1, dtype=float)
+                    mn_A = np.multiply(sum_A, 1/N_A)
+                    mn_A[np.isnan(mn_A)] = c_0
+
+                    sum_B = np.cumsum(np.multiply(sampled_B, outcomes), axis=1)
+                    N_B = np.cumsum(sampled_B, axis=1, dtype=float)
+                    mn_B = np.multiply(sum_B, 1/N_B)
+                    mn_B[np.isnan(mn_B)] = c_0
+
+                    compA = np.multiply(outcomes - mn_B, sampled_A)
+                    compB = np.multiply(outcomes - mn_A, sampled_B)
+                    sv = (-1 * compA) + compB
+
+                else:
+                    # (default) compare to true (weighted)
+                    # mean of other option
+                    if self.problemtype is 'multinomial':
+                        A, B = V
+                    elif self.problemtype is 'normal':
+                        if 'pow_gain' in pars:
+                            A, B = w_options[:,0]
+                        else:
+                            A, B = options[:,0]
+                    c_A = B * np.ones(outcomes_A.shape)
+                    c_B = A * np.ones(outcomes_B.shape)
+
+
+                sv[sampled_A] = -1 * (outcomes_A - c_A + err_A)
+                sv[sampled_B] =      (outcomes_B - c_B + err_B)
+
+                """
                 if 'c' in pars:
                     c = pars.get('c')
                     sv[sampled_A] = -1 * (outcomes_A - c)
@@ -341,14 +393,16 @@ class CHASEProcessModel(object):
                     if self.problemtype is 'multinomial':
                         A, B = V
                     elif self.problemtype is 'normal':
-                        if 'pow_gain' in pars: A, B = w_options
-                        else: A, B = options
+                        if 'pow_gain' in pars:
+                            A, B = w_options[:,0]
+                        else:
+                            A, B = options[:,0]
 
                     c_sigma = pars.get('c_sigma')
                     #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
                     #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
-                    c_A = np.random.normal(loc=B[0], scale=c_sigma, size=N_sampled_A)
-                    c_B = np.random.normal(loc=A[0], scale=c_sigma, size=N_sampled_B)
+                    c_A = np.random.normal(loc=B, scale=c_sigma, size=N_sampled_A)
+                    c_B = np.random.normal(loc=A, scale=c_sigma, size=N_sampled_B)
                     sv[sampled_A] = -1 * (outcomes_A - c_A)
                     sv[sampled_B] =      (outcomes_B - c_B)
 
@@ -372,7 +426,7 @@ class CHASEProcessModel(object):
                     #compA = np.multiply(outcomes - mn_B, sampled_A)
                     #compB = np.multiply(outcomes - mn_A, sampled_B)
                     sv = (-1 * compA) + compB
-
+                """
 
                 """
                 if self.problemtype is 'multinomial':
