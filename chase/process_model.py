@@ -125,7 +125,10 @@ class CHASEProcessModel(object):
         else:
             variance_scale = 1
 
-        threshold = theta * variance_scale
+        if self.stoprule == 'optional':
+            threshold = theta * variance_scale
+        else:
+            threshold = None
 
         ### Starting distribution
 
