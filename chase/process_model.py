@@ -37,7 +37,7 @@ class CHASEProcessModel(object):
         ### Stopping rules
 
         if self.stoprule == 'optional':
-            theta  = pars.get('theta', 3)   # decision threshold (optional only)
+            threshold  = pars.get('theta', 3)   # decision threshold (optional only)
             r      = pars.get('r', 0)       # rate of boundary collapse (optional only)
             stop_T = None
 
@@ -117,18 +117,18 @@ class CHASEProcessModel(object):
         if 'sc' in pars:
             # raised to power
             sc = pars.get('sc')
-            variance_scale = np.sqrt(sigma2) ** sc
+            variance_scale = 1 / float(np.sqrt(sigma2) ** sc)
         elif 'sc2' in pars:
             # multiplicative
             sc = pars.get('sc2')
-            variance_scale = np.sqrt(sigma2) * sc
+            variance_scale = 1 / float(np.sqrt(sigma2) * sc)
         else:
             variance_scale = 1
 
-        if self.stoprule == 'optional':
-            threshold = theta * variance_scale
-        else:
-            threshold = None
+        #if self.stoprule == 'optional':
+        #    threshold = theta * variance_scale
+        #else:
+        #    threshold = None
 
         ### Starting distribution
 
@@ -144,10 +144,10 @@ class CHASEProcessModel(object):
             #Z = Z * 500
             #Z = Z * threshold
 
-        elif 'tau_rel' in pars:
-            tau = pars.get('tau_rel')
-            tau = tau * variance_scale
-            p = laplace.rvs(loc=0, scale=tau, size=N)
+        #elif 'tau_rel' in pars:
+        #    tau = pars.get('tau_rel')
+        #    tau = tau * variance_scale
+        #    p = laplace.rvs(loc=0, scale=tau, size=N)
 
         elif 'tau_unif' in pars:
             #tau = pars.get('tau_unif', .001)
@@ -159,12 +159,12 @@ class CHASEProcessModel(object):
             np.random.shuffle(Z)
             #Z = np.random.uniform(low=(-tau), high=tau, size=N)
 
-        elif 'tau_unif_rel' in pars:
-            tau = pars.get('tau_unif_rel', .001)
-            #rng = tau * (threshold - .001)
-            rng = tau * variance_scale
-            Z = np.linspace(-rng, rng, num=N)
-            np.random.shuffle(Z)
+        #elif 'tau_unif_rel' in pars:
+        #    tau = pars.get('tau_unif_rel', .001)
+        #    #rng = tau * (threshold - .001)
+        #    rng = tau * variance_scale
+        #    Z = np.linspace(-rng, rng, num=N)
+        #    np.random.shuffle(Z)
 
 
         ### Simulate
@@ -390,6 +390,9 @@ class CHASEProcessModel(object):
                     sv[sampled_A] = -1 * (outcomes_A - c_A + err_A)
                     sv[sampled_B] =      (outcomes_B - c_B + err_B)
 
+                sv = sv * variance_scale
+
+
                 """
                 if 'c' in pars:
                     c = pars.get('c')
@@ -408,8 +411,6 @@ class CHASEProcessModel(object):
                             A, B = options[:,0]
 
                     c_sigma = pars.get('c_sigma')
-                    #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
-                    #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
                     c_A = np.random.normal(loc=B, scale=c_sigma, size=N_sampled_A)
                     c_B = np.random.normal(loc=A, scale=c_sigma, size=N_sampled_B)
                     sv[sampled_A] = -1 * (outcomes_A - c_A)
