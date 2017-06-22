@@ -332,9 +332,13 @@ class CHASEProcessModel(object):
                 # noise
                 if 'c_sigma' in pars:
                     c_sigma = pars.get('c_sigma')
-                    err_A = np.random.normal(loc=0, scale=c_sigma, size=outcomes_A.shape)
-                    err_B = np.random.normal(loc=0, scale=c_sigma, size=outcomes_B.shape)
+                    err = np.random.normal(loc=0, scale=c_sigma, size=outcomes.shape)
+                    err_A = err[sampled_A]
+                    err_B = err[sampled_B]
+                    #err_A = np.random.normal(loc=0, scale=c_sigma, size=outcomes_A.shape)
+                    #err_B = np.random.normal(loc=0, scale=c_sigma, size=outcomes_B.shape)
                 else:
+                    err = np.zeros(outcomes.shape)
                     err_A = np.zeros(outcomes_A.size)
                     err_B = np.zeros(outcomes_B.size)
 
@@ -347,7 +351,6 @@ class CHASEProcessModel(object):
 
                 elif 'c_0' in pars:
                     # compare to sample mean
-                    raise NotImplementedError, "need to fix for c_0"
                     c_0 = pars.get('c_0', 45)
 
                     sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
@@ -362,7 +365,7 @@ class CHASEProcessModel(object):
 
                     compA = np.multiply(outcomes - mn_B, sampled_A)
                     compB = np.multiply(outcomes - mn_A, sampled_B)
-                    sv = (-1 * compA) + compB
+                    #sv = (-1 * compA) + compB
 
                 else:
                     # (default) compare to true (weighted)
@@ -377,9 +380,12 @@ class CHASEProcessModel(object):
                     c_A = B * np.ones(outcomes_A.shape)
                     c_B = A * np.ones(outcomes_B.shape)
 
-
-                sv[sampled_A] = -1 * (outcomes_A - c_A + err_A)
-                sv[sampled_B] =      (outcomes_B - c_B + err_B)
+                # combine
+                if 'c_0' in pars:
+                    sv = (-1 * compA) + compB + err
+                else:
+                    sv[sampled_A] = -1 * (outcomes_A - c_A + err_A)
+                    sv[sampled_B] =      (outcomes_B - c_B + err_B)
 
                 """
                 if 'c' in pars:
