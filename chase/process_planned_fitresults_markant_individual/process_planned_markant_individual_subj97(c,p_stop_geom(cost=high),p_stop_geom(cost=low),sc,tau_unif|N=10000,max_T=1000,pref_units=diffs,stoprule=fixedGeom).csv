@@ -1,0 +1,2 @@
+,iteration,success,nllh,k,N,bic,c,p_stop_geom(cost=high),p_stop_geom(cost=low),sc,tau_unif
+0,0,True,25.1515419951,5,24,66.1933531419,60.5294029354,0.921121282837,0.883662581164,0.767203641971,12.6873726385
