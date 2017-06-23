@@ -385,12 +385,21 @@ class CHASEProcessModel(object):
 
                 # combine
                 if 'c_0' in pars:
-                    sv = (-1 * compA) + compB + err
+                    sv = (-1 * compA) + compB
                 else:
-                    sv[sampled_A] = -1 * (outcomes_A - c_A + err_A)
-                    sv[sampled_B] =      (outcomes_B - c_B + err_B)
+                    sv[sampled_A] = -1 * (outcomes_A - c_A)
+                    sv[sampled_B] =      (outcomes_B - c_B)
 
-                sv = sv * variance_scale
+                sv = sv * variance_scale + err
+
+                # combine
+                #if 'c_0' in pars:
+                #    sv = (-1 * compA) + compB + err
+                #else:
+                #    sv[sampled_A] = -1 * (outcomes_A - c_A + err_A)
+                #    sv[sampled_B] =      (outcomes_B - c_B + err_B)
+
+                #sv = sv * variance_scale
 
 
                 """
