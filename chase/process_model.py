@@ -4,7 +4,7 @@ from copy import deepcopy
 from time import time
 from utils import *
 from chase.base import *
-from scipy.stats import truncnorm, geom, laplace
+from scipy.stats import truncnorm, geom, laplace, norm
 
 X_MIN = -100
 X_MAX = 180
@@ -158,6 +158,10 @@ class CHASEProcessModel(object):
             Z = np.linspace(-rng, rng, num=N)
             np.random.shuffle(Z)
             #Z = np.random.uniform(low=(-tau), high=tau, size=N)
+
+        elif 'tau_normal' in pars:
+            tau = pars.get('tau_normal')
+            Z = norm.rvs(loc=0, scale=tau, size=N)
 
         #elif 'tau_unif_rel' in pars:
         #    tau = pars.get('tau_unif_rel', .001)
@@ -719,7 +723,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 
