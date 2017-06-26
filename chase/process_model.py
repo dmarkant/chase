@@ -137,12 +137,12 @@ class CHASEProcessModel(object):
             tau = pars.get('tau')
             Z = laplace.rvs(loc=0, scale=tau, size=N)
 
-            dx = .001
-            x = np.arange(-1+dx, 1, dx)
-            p = laplace.pdf(x, loc=0, scale=tau)
-            pn = p/p.sum()
-            Z = np.random.choice(x, N, p=pn)
-            Z = Z * threshold
+            #dx = .001
+            #x = np.arange(-1+dx, 1, dx)
+            #p = laplace.pdf(x, loc=0, scale=tau)
+            #pn = p/p.sum()
+            #Z = np.random.choice(x, N, p=pn)
+            #Z = Z * threshold
 
         #elif 'tau_rel' in pars:
         #    tau = pars.get('tau_rel')
