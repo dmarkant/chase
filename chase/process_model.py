@@ -342,8 +342,10 @@ class CHASEProcessModel(object):
                     err = np.random.normal(loc=0, scale=c_sigma, size=outcomes.shape)
                     err_A = err[sampled_A]
                     err_B = err[sampled_B]
-                    #err_A = np.random.normal(loc=0, scale=c_sigma, size=outcomes_A.shape)
-                    #err_B = np.random.normal(loc=0, scale=c_sigma, size=outcomes_B.shape)
+                elif 'dv_sigma' in pars:
+                    dv_sigma = pars.get('dv_sigma')
+                    err = np.random.normal(loc=0, scale=dv_sigma, size=N)
+                    err = np.tile(err, (max_T, 1)).transpose()
                 else:
                     err = np.zeros(outcomes.shape)
                     err_A = np.zeros(outcomes_A.size)
@@ -395,15 +397,6 @@ class CHASEProcessModel(object):
                     sv[sampled_B] =      (outcomes_B - c_B)
 
                 sv = sv * variance_scale + err
-
-                # combine
-                #if 'c_0' in pars:
-                #    sv = (-1 * compA) + compB + err
-                #else:
-                #    sv[sampled_A] = -1 * (outcomes_A - c_A + err_A)
-                #    sv[sampled_B] =      (outcomes_B - c_B + err_B)
-
-                #sv = sv * variance_scale
 
 
                 """
@@ -723,7 +716,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 
