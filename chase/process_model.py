@@ -113,8 +113,8 @@ class CHASEProcessModel(object):
                     w_options[i] = np.array([ev, evar])
                 sigma2 = w_options[:,1].sum()
             else:
-                #sigma2 = options[:,1].mean()
-                sigma2 = options[:,1].sum()
+                sigma2 = options[:,1].mean()
+                #sigma2 = options[:,1].sum()
 
         # scale by variance
         if 'sc' in pars:
