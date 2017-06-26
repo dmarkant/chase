@@ -45,10 +45,12 @@ class CHASEProcessModel(object):
         elif self.stoprule=='fixedT':
             stop_T = pars.get('stop_T', 2)
             max_T  = stop_T
+            threshold = 1000
 
         # geometric
         elif self.stoprule=='fixedGeom':
 
+            threshold = 1000
             p_stop_geom = pars.get('p_stop_geom')
             minss = pars.get('minsamplesize', 1)
 
@@ -109,9 +111,10 @@ class CHASEProcessModel(object):
                 for i in range(2):
                     ev, evar = cpt.normal_raised_to_power(options[i], pars['pow_gain'])
                     w_options[i] = np.array([ev, evar])
-                sigma2 = w_options[:,1].mean()
+                sigma2 = w_options[:,1].sum()
             else:
-                sigma2 = options[:,1].mean()
+                #sigma2 = options[:,1].mean()
+                sigma2 = options[:,1].sum()
 
         # scale by variance
         if 'sc' in pars:
@@ -124,11 +127,8 @@ class CHASEProcessModel(object):
             variance_scale = 1 / float(np.sqrt(sigma2) * sc)
         else:
             variance_scale = 1
+            #variance_scale = 1 / float(np.sqrt(sigma2))
 
-        #if self.stoprule == 'optional':
-        #    threshold = theta * variance_scale
-        #else:
-        #    threshold = None
 
         ### Starting distribution
 
@@ -136,13 +136,13 @@ class CHASEProcessModel(object):
         if 'tau' in pars:
             tau = pars.get('tau')
             Z = laplace.rvs(loc=0, scale=tau, size=N)
-            #dx = .01
-            #x = np.arange(-1+dx, 1, dx)
-            #p = laplace.pdf(x, loc=0, scale=tau)
-            #pn = p/p.sum()
-            #Z = np.random.choice(x, N, p=pn)
-            #Z = Z * 500
-            #Z = Z * threshold
+
+            dx = .001
+            x = np.arange(-1+dx, 1, dx)
+            p = laplace.pdf(x, loc=0, scale=tau)
+            pn = p/p.sum()
+            Z = np.random.choice(x, N, p=pn)
+            Z = Z * threshold
 
         #elif 'tau_rel' in pars:
         #    tau = pars.get('tau_rel')
@@ -723,7 +723,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 
