@@ -87,6 +87,7 @@ class CHASEProcessModel(object):
             V = v.sum(axis=1)
             evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
             sigma2 = np.max([np.sum(evar), 1e-10])
+            sigma2 = np.max([np.mean(evar), 1e-10])
 
             # sequential weights
             omega = []
@@ -396,8 +397,9 @@ class CHASEProcessModel(object):
                     sv[sampled_A] = -1 * (outcomes_A - c_A)
                     sv[sampled_B] =      (outcomes_B - c_B)
 
-                sv = sv * variance_scale + err
-
+                #sv = sv * variance_scale + err
+                #sv = (sv + err) * variance_scale
+                sv = sv + err
 
                 """
                 if 'c' in pars:
@@ -498,6 +500,9 @@ class CHASEProcessModel(object):
 
         # add starting states to first outcome
         sv[:,0] = sv[:,0] + Z
+
+        sv = sv * variance_scale
+
 
         # p_stay
         #p_stay = pars.get('p_stay', 0)
