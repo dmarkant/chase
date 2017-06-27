@@ -398,8 +398,7 @@ class CHASEProcessModel(object):
                     sv[sampled_B] =      (outcomes_B - c_B)
 
                 #sv = sv * variance_scale + err
-                #sv = (sv + err) * variance_scale
-                sv = sv + err
+                sv = (sv + err) * variance_scale
 
                 """
                 if 'c' in pars:
@@ -500,9 +499,6 @@ class CHASEProcessModel(object):
 
         # add starting states to first outcome
         sv[:,0] = sv[:,0] + Z
-
-        sv = sv * variance_scale
-
 
         # p_stay
         #p_stay = pars.get('p_stay', 0)
