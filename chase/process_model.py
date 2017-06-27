@@ -131,7 +131,7 @@ class CHASEProcessModel(object):
             #variance_scale = 1 / float(np.sqrt(sigma2))
 
 
-        threshold = threshold / variance_scale
+        #threshold = threshold / variance_scale
 
         ### Starting distribution
 
@@ -399,8 +399,8 @@ class CHASEProcessModel(object):
                     sv[sampled_A] = -1 * (outcomes_A - c_A)
                     sv[sampled_B] =      (outcomes_B - c_B)
 
-                sv = sv + err
-                #sv = sv * variance_scale + err
+                #sv = sv + err
+                sv = sv * variance_scale + err
                 #sv = (sv + err) * variance_scale
 
                 """
