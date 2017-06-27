@@ -397,8 +397,8 @@ class CHASEProcessModel(object):
                     sv[sampled_A] = -1 * (outcomes_A - c_A)
                     sv[sampled_B] =      (outcomes_B - c_B)
 
-                #sv = sv * variance_scale + err
-                sv = (sv + err) * variance_scale
+                sv = sv * variance_scale + err
+                #sv = (sv + err) * variance_scale
 
                 """
                 if 'c' in pars:
