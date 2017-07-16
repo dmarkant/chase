@@ -31,7 +31,7 @@ class CHASEProcessModel(object):
         ### Basic setup
         np.random.seed()
         N     = pars.get('N', 10000)   # number of simulated trials
-        max_T = pars.get('max_T', 300) # maximum sample size
+        max_T = pars.get('max_T', 1000) # maximum sample size
 
 
         ### Stopping rules
@@ -131,6 +131,14 @@ class CHASEProcessModel(object):
             tau = pars.get('tau')
             Z = laplace.rvs(loc=0, scale=tau, size=N)
 
+        elif 'tau_trunc' in pars:
+            tau = pars.get('tau_trunc')
+            dx = .001
+            x = np.arange(-(threshold-dx), threshold, dx)
+            p = laplace.pdf(x, loc=0, scale=tau)
+            pn = p/p.sum()
+            Z = np.random.choice(x, N, p=pn)
+
         elif 'tau_rel' in pars:
             tau = pars.get('tau_rel')
             tau = tau / variance_scale
@@ -154,6 +162,12 @@ class CHASEProcessModel(object):
             Z = np.linspace(-rng, rng, num=N)
             np.random.shuffle(Z)
             #Z = np.random.uniform(low=(-tau), high=tau, size=N)
+
+        elif 'tau_unif_rel' in pars:
+            dx = .001
+            rng = pars.get('tau_unif_rel', .001)
+            Z = np.linspace(-(threshold-dx) * rng, (threshold-dx) * rng, num=N)
+            np.random.shuffle(Z)
 
         elif 'tau_normal' in pars:
             tau = pars.get('tau_normal')
@@ -555,7 +569,6 @@ class CHASEProcessModel(object):
             if f not in factors: factors.append(f)
             data.loc[data[f]==value,p] = pars[k]
 
-
         nllh = []
         nllh_choice = []
         nllh_sample = []
@@ -572,7 +585,6 @@ class CHASEProcessModel(object):
                 for k in spec:
                     p = k.split('(')[0]
                     grppars[p] = probdata[p].values[0]
-
 
                 # run the model
                 results = self.__call__(problems[pid], grppars)
@@ -623,7 +635,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 

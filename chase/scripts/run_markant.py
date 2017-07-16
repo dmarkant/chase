@@ -6,14 +6,30 @@ from farming import *
 N_ITER = 1
 
 PARSETS = {}
-PARSETS['optional'] = [['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'c_0', 'pow_gain'],
+PARSETS['optional'] = [#['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'c_0', 'pow_gain'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c', 'sc'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'c_sigma', 'sc'],
+                       #
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c_sigma'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c_sigma', 'sc'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c_sigma', 'sc2'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_rel_trunc', 'c_sigma', 'sc'],
+                       ['theta(cost=low)', 'theta(cost=high)', 'tau_trunc', 'c_sigma', 'sc'],
+                       ['theta(cost=low)', 'theta(cost=high)', 'tau_trunc', 'c_sigma', 'sc2'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'c_sigma', 'sc'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_rel_trunc', 'c_sigma', 'sc2'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_normal', 'c_sigma', 'sc'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c_sigma', 'c_0', 'sc'],
+                       #
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma', 'sc'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_sigma', 'c_0', 'sc'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'c_0', 'c_sigma', 'sc'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif', 'c_0', 'sc'],
+                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'sc'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'c_0', 'sc'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'c_0', 'sc2'],
-                       #['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', 'sc'],
                        #['theta(cost=low)', 'theta(cost=high)', 'tau_rel', 'c_0', 'sc'],
                        #
                        #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c_0'],
@@ -21,13 +37,17 @@ PARSETS['optional'] = [['theta(cost=low)', 'theta(cost=high)', 'tau_unif_rel', '
                        #['theta(cost=low)', 'theta(cost=high)', 'tau', 'c', 'r'],
                        ]
 
-PARSETS['geometric'] = [['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif_rel', 'c_0', 'pow_gain'],
+PARSETS['geometric'] = [#['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif_rel', 'c_0', 'pow_gain'],
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c', 'sc'],
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma'],
+                        ['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c_sigma', 'sc'],
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c_sigma', 'sc2'],
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_sigma', 'sc'],
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0'],
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'c_0', 'sc'],
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif', 'sc'],
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif_rel', 'c_0', 'sc'],
+                        #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif_rel', 'c_0', 'c_sigma', 'sc'],
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_unif_rel', 'c_0', 'sc2'],
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau_rel', 'c_0', 'sc']
                         #['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau', 'c_0']
@@ -35,16 +55,15 @@ PARSETS['geometric'] = [['p_stop_geom(cost=low)', 'p_stop_geom(cost=high)', 'tau
                         ]
 
 FIXED = {}
-for pref_units in ['sums', 'diffs']:
-    FIXED[('optional',pref_units)] = {'pref_units': pref_units,
-                                      'stoprule': 'optional',
-                                      'max_T': 1000,
-                                      'N': 10000,}
+FIXED['optional'] = {'pref_units': 'diffs',
+                     'stoprule': 'optional',
+                     'max_T': 1000,
+                     'N': 10000}
 
-    FIXED[('geometric',pref_units)] = {'pref_units': pref_units,
-                                       'stoprule': 'fixedGeom',
-                                       'N': 10000,
-                                       'max_T': 1000,}
+FIXED['geometric'] = {'pref_units': 'diffs',
+                      'stoprule': 'fixedGeom',
+                      'N': 10000,
+                      'max_T': 1000,}
 
 
 
@@ -85,19 +104,18 @@ def fit(sid, data, stoprule):
         OUTDIR = 'process_planned_fitresults_markant_individual'
 
     P = PARSETS[stoprule]
-    F = FIXED[(stoprule,'diffs')]
+    F = FIXED[stoprule]
 
     sr = 'fixedGeom' if stoprule=='geometric' else 'optional'
 
     m = CHASEProcessModel(problems=problems,
                           problemtype='normal',
-                          stoprule=sr,
-                          startdist='laplace')
+                          stoprule=sr)
 
     for fitting in P:
         results = fit_mlh(m, problems, data,
                           SIM_ID, F, fitting, ftol=.1, niter=N_ITER, outdir=OUTDIR)
-        print results.sort('nllh')
+        print results.sort_values(by='nllh')
 
 
 def best(sid, stoprule, fitting):
@@ -108,7 +126,7 @@ def best(sid, stoprule, fitting):
         SIM_ID = 'process_planned_markant_individual_subj%s' % sid
         OUTDIR = 'process_planned_fitresults_markant_individual'
 
-    F = FIXED[(stoprule,'diffs')]
+    F = FIXED[stoprule]
     best = best_result(SIM_ID, F, fitting, outdir=OUTDIR)
     return best
 
@@ -125,10 +143,9 @@ def predict(sid, data, problems, stoprule, fitting):
     sr = 'fixedGeom' if stoprule=='geometric' else 'optional'
     m = CHASEProcessModel(problems=problems,
                           problemtype='normal',
-                          stoprule=sr,
-                          startdist='laplace')
+                          stoprule=sr)
 
-    F = FIXED[(stoprule,'diffs')]
+    F = FIXED[stoprule]
     #best = best_result(SIM_ID, F, fitting, outdir=OUTDIR)
     pred = predict_from_result(m, problems, data, SIM_ID, F,
                                fitting = fitting,
@@ -139,7 +156,7 @@ def predict(sid, data, problems, stoprule, fitting):
 def run():
 
     SSET=data.subject.unique()
-    SSET = [117]
+    SSET=[98]
 
     for sid in SSET:
         #for stoprule in ['optional', 'geometric']:
@@ -158,13 +175,14 @@ def f(args):
 def run_multi():
 
     SSET = data.subject.unique()
+    np.random.shuffle(SSET)
     jobs = []
     for sid in SSET:
         #for stoprule in ['optional', 'geometric']:
         for stoprule in ['optional']:
             jobs.append([sid,stoprule])
 
-    r = farm(targetfunc=f, jobs=jobs, num_workers=14)
+    r = farm(targetfunc=f, jobs=jobs, num_workers=2)
     print "result: ", r
 
     # incompleted jobs
@@ -173,5 +191,5 @@ def run_multi():
 
 if __name__=='__main__':
     load_data()
-    run_multi()
-    #run()
+    #run_multi()
+    run()

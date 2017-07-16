@@ -9,13 +9,16 @@ from collections import OrderedDict
 from scipy.stats.mstats import mquantiles
 from time import time
 
-PARS = {'theta': [.1, 200],
-        'p_stay': [0, 1, .1],
+
+PARS = {'theta': [.1, 300],
         'p_stop_geom': [0, 1],
-        'tau': [.00001, 50],
+        'tau': [.00001, 200],
+        'tau_trunc': [.00001, 200],
+        'tau_normal': [.00001, 50],
         'tau_rel': [.00001, 50],
+        'tau_rel_trunc': [.00001, 100],
         'tau_unif': [.001, 300],
-        'tau_unif_rel': [.001, 200],
+        'tau_unif_rel': [.001, 1],
         'prelec_gamma': [.01, 3],
         'prelec_elevation': [.01, 3],
         'prelec_gamma_loss': [.01, 3],
@@ -23,12 +26,14 @@ PARS = {'theta': [.1, 200],
         'pow_gain': [.01, 1.5],
         'w_loss': [0., 10],
         's': [0, 30],
-        'sc': [0, 1],
+        'sc': [0, 2],
         'sc2': [0, 10],
+        'sc0': [0, 10],
         'r': [0, .1],
         'c': [0, 100],
-        'c_0': [0, 100],
-        'c_sigma': [0, 100]}
+        'c_0': [-10, 20],
+        'c_sigma': [0, 250],
+        }
 
 
 def freepars(parset, PARS):
@@ -48,8 +53,6 @@ def fit_mlh(model, problems, data, name,
     fitting = freepars(fitting, PARS)
     sim_id = sim_id_str(name, fixed, fitting)
     checkpath(outdir)
-
-
 
     # determine number of parameters and observations
     k = len(fitting)
@@ -76,6 +79,7 @@ def fit_mlh(model, problems, data, name,
         pars['spec'] = filter(lambda k: k.count('(') > 0, allpars)
         print '\t'.join(pars['fitting'])
 
+        np.random.seed()
         init = []
         bounds = []
         for p in rest:
@@ -144,7 +148,9 @@ def best_result(name, fixed={}, fitting=[], outdir='.', nopars=False, opt='nllh'
 
 
 def predict_from_result(model, problems, data, name, fixed={}, fitting=[], groups=None, outdir='.',
-                        max_T=1000, N=1000):
+                        max_T=300, N=1000):
+
+    start = time()
 
     # load the best result
     best = best_result(name, fixed, fitting, outdir=outdir)
@@ -152,8 +158,8 @@ def predict_from_result(model, problems, data, name, fixed={}, fitting=[], group
 
     # free parameters that are not specific to any groups
     nonspec = filter(lambda k: k.count('(')==0, fitting.keys())
-    for k in nonspec:
-        data.loc[:,k] = [best[k] for _ in range(data.shape[0])]
+    for k in nonspec: data.insert(data.shape[1], k, best[k])
+
 
     # free parameters that differ across groups
     factors = []
@@ -163,8 +169,8 @@ def predict_from_result(model, problems, data, name, fixed={}, fitting=[], group
         p = sp[0]
         f, value = sp[1].split('=')
         if f not in factors: factors.append(f)
-        ss = data[data[f]==value]
-        data.loc[data[f]==value,p] = [best[k] for _ in range(ss.shape[0])]
+        data.loc[data[f]==value,p] = best[k]
+
 
     knownobs = fixed.get('knownobs', False)
     if not knownobs:
@@ -184,16 +190,11 @@ def predict_from_result(model, problems, data, name, fixed={}, fitting=[], group
                 p = k.split('(')[0]
                 pars[p] = grp.iloc[0][p]
 
+
             # run the model
             r = model(problems[pid], pars)
             cp = r['choice'].mean()
             ss = mquantiles(r['samplesize'])
-
-            # store predictions
-            data.loc[grp.index,'pred_cp']      = np.round(cp, 3)
-            data.loc[grp.index,'pred_ss(.25)'] = ss[0]
-            data.loc[grp.index,'pred_ss(.5)']  = ss[1]
-            data.loc[grp.index,'pred_ss(.75)'] = ss[2]
 
             # store predicted sample size conditional on choice
             ind_L = np.where(r['choice']==0)[0]
@@ -207,14 +208,23 @@ def predict_from_result(model, problems, data, name, fixed={}, fitting=[], group
                 ss_H = mquantiles(r['samplesize'][ind_H])
             else:
                 ss_H = [np.nan, np.nan, np.nan]
-            data.loc[grp.index,'pred_ss_L(.25)'] = ss_L[0]
-            data.loc[grp.index,'pred_ss_L(.5)']  = ss_L[1]
-            data.loc[grp.index,'pred_ss_L(.75)'] = ss_L[2]
-            data.loc[grp.index,'pred_ss_H(.25)'] = ss_H[0]
-            data.loc[grp.index,'pred_ss_H(.5)']  = ss_H[1]
-            data.loc[grp.index,'pred_ss_H(.75)'] = ss_H[2]
 
-        return data
+            cols = ['pred_cp', 'pred_ss(.25)', 'pred_ss(.5)', 'pred_ss(.75)',
+                    'pred_ss_L(.25)', 'pred_ss_L(.5)', 'pred_ss_L(.75)',
+                    'pred_ss_H(.25)', 'pred_ss_H(.5)', 'pred_ss_H(.75)']
+            res = np.array([np.round(cp, 3), ss[0], ss[1], ss[2],
+                   ss_L[0], ss_L[1], ss_L[2],
+                   ss_H[0], ss_H[1], ss_H[2]])
+
+            rdf = pd.DataFrame(np.tile(res, (grp.shape[0], 1)), columns=cols)
+            rdf.index = grp.index
+            grp = grp.join(rdf)
+
+            arr.append(grp)
+
+
+        pred = pd.concat(arr)
+        return pred
 
     else:
 
