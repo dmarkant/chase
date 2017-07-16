@@ -87,7 +87,6 @@ class CHASEProcessModel(object):
             V = v.sum(axis=1)
             evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
             sigma2 = np.max([np.sum(evar), 1e-10])
-            sigma2 = np.max([np.mean(evar), 1e-10])
 
             # sequential weights
             omega = []
@@ -97,14 +96,6 @@ class CHASEProcessModel(object):
             omega[np.isnan(omega)] = 0
             w_outcomes = np.array([np.multiply(omega[i], values[i]) for i in range(len(options))])
 
-            # if accumulating differences, subtract the mean of the other option
-            #if pref_units == 'diffs':
-            #    #w_outcomes[0] = w_outcomes[0] - V[1]
-            #    #w_outcomes[1] = w_outcomes[1] - V[0]
-            #    mn = (V[1] + V[0])/2
-            #    w_outcomes[0] = w_outcomes[0] - mn
-            #    w_outcomes[1] = w_outcomes[1] - mn
-
         elif self.problemtype is 'normal':
 
             if 'pow_gain' in pars:
@@ -113,9 +104,10 @@ class CHASEProcessModel(object):
                     ev, evar = cpt.normal_raised_to_power(options[i], pars['pow_gain'])
                     w_options[i] = np.array([ev, evar])
                 sigma2 = w_options[:,1].sum()
+                evar = w_options[:,1]
             else:
-                sigma2 = options[:,1].mean()
-                #sigma2 = options[:,1].sum()
+                evar = options[:,1]
+                sigma2 = options[:,1].sum()
 
         # scale by variance
         if 'sc' in pars:
@@ -126,12 +118,11 @@ class CHASEProcessModel(object):
             # multiplicative
             sc = pars.get('sc2')
             variance_scale = 1 / float(np.sqrt(sigma2) * sc)
+        elif 'sc0' in pars:
+            sc0 = pars.get('sc0')
         else:
             variance_scale = 1
-            #variance_scale = 1 / float(np.sqrt(sigma2))
 
-
-        #threshold = threshold / variance_scale
 
         ### Starting distribution
 
@@ -140,17 +131,19 @@ class CHASEProcessModel(object):
             tau = pars.get('tau')
             Z = laplace.rvs(loc=0, scale=tau, size=N)
 
-            #dx = .001
-            #x = np.arange(-1+dx, 1, dx)
-            #p = laplace.pdf(x, loc=0, scale=tau)
-            #pn = p/p.sum()
-            #Z = np.random.choice(x, N, p=pn)
-            #Z = Z * threshold
-
         elif 'tau_rel' in pars:
             tau = pars.get('tau_rel')
             tau = tau / variance_scale
             Z = laplace.rvs(loc=0, scale=tau, size=N)
+
+        elif 'tau_rel_trunc' in pars:
+            tau = pars.get('tau_rel_trunc')
+            dx = .001
+            x = np.arange(-1+dx, 1, dx)
+            p = laplace.pdf(x, loc=0, scale=tau)
+            pn = p/p.sum()
+            Z = np.random.choice(x, N, p=pn)
+            Z = Z * threshold
 
         elif 'tau_unif' in pars:
             #tau = pars.get('tau_unif', .001)
@@ -165,13 +158,6 @@ class CHASEProcessModel(object):
         elif 'tau_normal' in pars:
             tau = pars.get('tau_normal')
             Z = norm.rvs(loc=0, scale=tau, size=N)
-
-        #elif 'tau_unif_rel' in pars:
-        #    tau = pars.get('tau_unif_rel', .001)
-        #    #rng = tau * (threshold - .001)
-        #    rng = tau * variance_scale
-        #    Z = np.linspace(-rng, rng, num=N)
-        #    np.random.shuffle(Z)
 
 
         ### Simulate
@@ -339,20 +325,6 @@ class CHASEProcessModel(object):
                 # comparison
                 sv = np.zeros((N, max_T))
 
-                # noise
-                if 'c_sigma' in pars:
-                    c_sigma = pars.get('c_sigma')
-                    err = np.random.normal(loc=0, scale=c_sigma, size=outcomes.shape)
-                    err_A = err[sampled_A]
-                    err_B = err[sampled_B]
-                elif 'dv_sigma' in pars:
-                    dv_sigma = pars.get('dv_sigma')
-                    err = np.random.normal(loc=0, scale=dv_sigma, size=N)
-                    err = np.tile(err, (max_T, 1)).transpose()
-                else:
-                    err = np.zeros(outcomes.shape)
-                    err_A = np.zeros(outcomes_A.size)
-                    err_B = np.zeros(outcomes_B.size)
 
                 # criteria for each option
                 if 'c' in pars:
@@ -399,104 +371,35 @@ class CHASEProcessModel(object):
                     sv[sampled_A] = -1 * (outcomes_A - c_A)
                     sv[sampled_B] =      (outcomes_B - c_B)
 
-                #sv = sv + err
-                sv = sv * variance_scale + err
-                #sv = (sv + err) * variance_scale
 
-                """
-                if 'c' in pars:
-                    c = pars.get('c')
-                    sv[sampled_A] = -1 * (outcomes_A - c)
-                    sv[sampled_B] =      (outcomes_B - c)
+                if 'sc0' in pars:
 
-                elif 'c_sigma' in pars:
+                    # for any options with a variance of zero,
+                    # replace with sc0
+                    evar[evar==0.] = sc0
 
-                    # figure out where option means are coming from
-                    if self.problemtype is 'multinomial':
-                        A, B = V
-                    elif self.problemtype is 'normal':
-                        if 'pow_gain' in pars:
-                            A, B = w_options[:,0]
-                        else:
-                            A, B = options[:,0]
+                    # scaling factor for each option depends on
+                    # its variance
+                    sc_A, sc_B = 1/np.sqrt(evar)
+                    sv[sampled_A] = sv[sampled_A] * sc_A
+                    sv[sampled_B] = sv[sampled_B] * sc_B
+                else:
+                    # fixed scaling factor across all options
+                    sv = sv * variance_scale
 
+                # noise
+                if 'c_sigma' in pars:
                     c_sigma = pars.get('c_sigma')
-                    c_A = np.random.normal(loc=B, scale=c_sigma, size=N_sampled_A)
-                    c_B = np.random.normal(loc=A, scale=c_sigma, size=N_sampled_B)
-                    sv[sampled_A] = -1 * (outcomes_A - c_A)
-                    sv[sampled_B] =      (outcomes_B - c_B)
+                    err = np.random.normal(loc=0, scale=c_sigma, size=outcomes.shape)
+                elif 'dv_sigma' in pars:
+                    dv_sigma = pars.get('dv_sigma')
+                    err = np.random.normal(loc=0, scale=dv_sigma, size=N)
+                    err = np.tile(err, (max_T, 1)).transpose()
+                else:
+                    err = np.zeros(outcomes.shape)
 
+                sv = sv + err
 
-                elif 'c_0' in pars:
-                    c_0 = pars.get('c_0', 45)
-
-                    sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
-                    N_A = np.cumsum(sampled_A, axis=1, dtype=float)
-                    mn_A = np.multiply(sum_A, 1/N_A)
-                    mn_A[np.isnan(mn_A)] = c_0
-
-                    sum_B = np.cumsum(np.multiply(sampled_B, outcomes), axis=1)
-                    N_B = np.cumsum(sampled_B, axis=1, dtype=float)
-                    mn_B = np.multiply(sum_B, 1/N_B)
-                    mn_B[np.isnan(mn_B)] = c_0
-
-                    compA = np.multiply(outcomes - mn_B, sampled_A)
-                    compB = np.multiply(outcomes - mn_A, sampled_B)
-
-                    #compA = np.multiply(outcomes - mn_B, sampled_A)
-                    #compB = np.multiply(outcomes - mn_A, sampled_B)
-                    sv = (-1 * compA) + compB
-                """
-
-                """
-                if self.problemtype is 'multinomial':
-                    sv[sampled_A] = -1 * w_outcomes[0][observed_A]
-                    sv[sampled_B] =      w_outcomes[1][observed_B]
-
-                elif self.problemtype is 'normal':
-
-                    if 'c' in pars:
-                        c = pars.get('c', 0)
-                        c_A = c
-                        c_B = c
-
-                    if 'c_sigma' in pars:
-                        if 'pow_gain' in pars: A, B = w_options
-                        c_sigma = pars.get('c_sigma')
-                        #c_A = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_A)
-                        #c_B = np.random.normal(loc=c, scale=c_sigma, size=N_sampled_B)
-                        c_A = np.random.normal(loc=B[0], scale=c_sigma, size=N_sampled_A)
-                        c_B = np.random.normal(loc=A[0], scale=c_sigma, size=N_sampled_B)
-
-                    #elif 'c_0' in pars:
-                    else:
-                        c_0 = pars.get('c_0', 45)
-
-                        sum_A = np.cumsum(np.multiply(sampled_A, outcomes), axis=1)
-                        N_A = np.cumsum(sampled_A, axis=1, dtype=float)
-                        mn_A = np.multiply(sum_A, 1/N_A)
-                        mn_A[np.isnan(mn_A)] = c_0
-
-                        sum_B = np.cumsum(np.multiply(sampled_B, outcomes), axis=1)
-                        N_B = np.cumsum(sampled_B, axis=1, dtype=float)
-                        mn_B = np.multiply(sum_B, 1/N_B)
-                        mn_B[np.isnan(mn_B)] = c_0
-
-                        compA = np.multiply(outcomes - mn_B, sampled_A)
-                        compB = np.multiply(outcomes - mn_A, sampled_B)
-
-                        c_A = mn_B
-                        c_B = mn_A
-
-
-                    if 'c' in pars or 'c_sigma' in pars:
-                        sv[sampled_A] = -1 * (outcomes_A - c_A)
-                        sv[sampled_B] =      (outcomes_B - c_B)
-                    else:
-                        compA = np.multiply(outcomes - mn_B, sampled_A)
-                        compB = np.multiply(outcomes - mn_A, sampled_B)
-                        sv = (-1 * compA) + compB
-                """
 
         ### Accumulation
 
@@ -504,10 +407,10 @@ class CHASEProcessModel(object):
         sv[:,0] = sv[:,0] + Z
 
         # p_stay
-        #p_stay = pars.get('p_stay', 0)
-        #if p_stay > 0:
-        #    attended = np.random.binomial(1, 1-p_stay, size=(N, max_T))
-        #    sv = np.multiply(sv, attended)
+        p_stay = pars.get('p_stay', 0)
+        if p_stay > 0:
+            attended = np.random.binomial(1, 1-p_stay, size=(N, max_T))
+            sv = np.multiply(sv, attended)
 
 
         # accumulate
