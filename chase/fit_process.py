@@ -223,7 +223,6 @@ def predict_from_result(model, problems, fitdata, name, fixed={}, fitting=[], gr
                             ss[0], ss[1], ss[2],
                             ss_L[0], ss_L[1], ss_L[2],
                             ss_H[0], ss_H[1], ss_H[2]])
-
             rdf = pd.DataFrame(np.tile(res, (grp.shape[0], 1)), columns=cols)
             rdf.index = grp.index
             grp = pd.concat([grp, rdf], axis=1)

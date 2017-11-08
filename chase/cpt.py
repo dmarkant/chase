@@ -42,6 +42,10 @@ def w_prelec(p, delta, gamma):
     # truncate at [0, 1]
     return np.clip(f, 0, 1)
 
+# derivative of weighting function
+def w_prime(p, delta, gamma):
+    return (delta*gamma/p) * ((-np.log(p)) ** (gamma - 1)) * w_prelec(p, delta, gamma)
+
 
 def rank_outcomes_by_domain(option):
     """Create two pandas dataframes for
