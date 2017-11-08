@@ -1,0 +1,2 @@
+,iteration,success,nllh,k,N,bic,pow_gain,prelec_elevation,prelec_gamma,tau,theta(group=fearful),theta(group=happy)
+0,0,True,2120.75677022,6,276,4275.23594563,0.0176697678231,0.832234427404,0.674498479934,28.3289964562,31.3282082177,12.5620984007
