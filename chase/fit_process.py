@@ -196,10 +196,11 @@ def predict_from_result(model, problems, fitdata, name, fixed={}, fitting=[], gr
                 p = k.split('(')[0]
                 pars[p] = grp.iloc[0][p]
 
-
             # run the model
             r = model(problems[pid], pars)
+
             cp = r['choice'].mean()
+            ss_mean = np.mean(r['samplesize'])
             ss = mquantiles(r['samplesize'])
 
             # store predicted sample size conditional on choice
@@ -215,17 +216,17 @@ def predict_from_result(model, problems, fitdata, name, fixed={}, fitting=[], gr
             else:
                 ss_H = [np.nan, np.nan, np.nan]
 
-            cols = ['pred_cp', 'pred_ss(.25)', 'pred_ss(.5)', 'pred_ss(.75)',
+            cols = ['pred_cp', 'pred_ss_mean', 'pred_ss(.25)', 'pred_ss(.5)', 'pred_ss(.75)',
                     'pred_ss_L(.25)', 'pred_ss_L(.5)', 'pred_ss_L(.75)',
                     'pred_ss_H(.25)', 'pred_ss_H(.5)', 'pred_ss_H(.75)']
-            res = np.array([np.round(cp, 3), ss[0], ss[1], ss[2],
-                   ss_L[0], ss_L[1], ss_L[2],
-                   ss_H[0], ss_H[1], ss_H[2]])
+            res = np.array([np.round(cp, 3), ss_mean,
+                            ss[0], ss[1], ss[2],
+                            ss_L[0], ss_L[1], ss_L[2],
+                            ss_H[0], ss_H[1], ss_H[2]])
 
             rdf = pd.DataFrame(np.tile(res, (grp.shape[0], 1)), columns=cols)
             rdf.index = grp.index
-            grp = grp.join(rdf)
-
+            grp = pd.concat([grp, rdf], axis=1)
             arr.append(grp)
 
 

@@ -1,7 +1,14 @@
-import numpy as np
-import cpt
+"""
+CHASE process model.
+
+<Insert description here!>
+
+"""
+
 from copy import deepcopy
 from time import time
+import numpy as np
+import chase.cpt
 from utils import *
 from chase.base import *
 from scipy.stats import truncnorm, geom, laplace, norm
@@ -11,6 +18,10 @@ X_MAX = 180
 
 
 class CHASEProcessModel(object):
+    """Insert description here
+
+
+    """
 
 
     def __init__(self, **kwargs):
@@ -20,7 +31,7 @@ class CHASEProcessModel(object):
         self.choicerule = kwargs.get('choicerule', None)
 
         # setup options for weighting functions
-        if self.problemtype is 'multinomial' and self.problems is not None:
+        if self.problemtype == 'multinomial' and self.problems != None:
             self.rdw = cpt.setup(self.problems)
 
 
@@ -32,24 +43,24 @@ class CHASEProcessModel(object):
         ### Basic setup
         np.random.seed()
         N     = pars.get('N', 10000)   # number of simulated trials
-        max_T = pars.get('max_T', 1000) # maximum sample size
+        max_T = int(pars.get('max_T', 1000)) # maximum sample size
 
 
         ### Stopping rules
 
         if self.stoprule == 'optional':
-            threshold  = pars.get('theta', 3)   # decision threshold (optional only)
-            r      = pars.get('r', 0)       # rate of boundary collapse (optional only)
+            threshold = pars.get('theta', 3)   # decision threshold (optional only)
+            r      = pars.get('r', 0)           # rate of boundary collapse (optional only)
             stop_T = None
 
         # fixed sample size
-        elif self.stoprule=='fixedT':
+        elif self.stoprule == 'fixedT':
             stop_T = pars.get('stop_T', 2)
             max_T  = stop_T
             threshold = 1000
 
         # geometric
-        elif self.stoprule=='fixedGeom':
+        elif self.stoprule == 'fixedGeom':
 
             threshold = 1000
             p_stop_geom = pars.get('p_stop_geom')
@@ -79,7 +90,7 @@ class CHASEProcessModel(object):
         ### Sequential weights
 
         # compute value and attentional weights for multinomial problems
-        if self.problemtype is 'multinomial':
+        if self.problemtype == 'multinomial':
             if self.rdw is None: wopt = options
             else:                wopt = self.rdw[pars['probid']]
             weights = np.array([cpt.pweight_prelec(option, pars) for option in wopt])
@@ -98,7 +109,7 @@ class CHASEProcessModel(object):
             omega[np.isnan(omega)] = 0
             w_outcomes = np.array([np.multiply(omega[i], values[i]) for i in range(len(options))])
 
-        elif self.problemtype is 'normal':
+        elif self.problemtype == 'normal':
 
             if 'pow_gain' in pars:
                 w_options = np.array([[0,0],[0,0]])
@@ -318,7 +329,7 @@ class CHASEProcessModel(object):
 
                 # observation matrix - which outcome occurred (by index)
                 observed = np.zeros((N, max_T), int)
-                if self.problemtype is 'multinomial':
+                if self.problemtype == 'multinomial':
                     observed_A = np.random.choice(range(len(w_outcomes[0])),
                                                 size=sampled_A.sum(),
                                                 p=options[0][:,1])
@@ -331,7 +342,7 @@ class CHASEProcessModel(object):
 
                 # record outcomes experienced (by value)
                 outcomes = np.zeros((N, max_T))
-                if self.problemtype is 'multinomial':
+                if self.problemtype == 'multinomial':
                     obj_outcomes = options[:,:,0]
                     #outcomes[sampled_A] = obj_outcomes[0][observed_A]
                     #outcomes[sampled_B] = obj_outcomes[1][observed_B]
@@ -430,6 +441,7 @@ class CHASEProcessModel(object):
                 if 'c_sigma' in pars:
                     c_sigma = pars.get('c_sigma')
                     err = np.random.normal(loc=0, scale=c_sigma, size=outcomes.shape)
+
                 elif 'dv_sigma' in pars:
                     dv_sigma = pars.get('dv_sigma')
                     err = np.random.normal(loc=0, scale=dv_sigma, size=N)
@@ -658,7 +670,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 
