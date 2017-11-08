@@ -10,11 +10,12 @@ from scipy.stats.mstats import mquantiles
 from time import time
 
 
-PARS = {'theta': [.1, 300],
+PARS = {'theta': [.1, 150],
         'p_stop_geom': [0, 1],
         'tau': [.00001, 200],
-        'tau_trunc': [.00001, 200],
-        'tau_normal': [.00001, 50],
+        'tau_trunc': [.00001, 100],
+        'tau_normal': [.00001, 100],
+        'tau_normal_trunc': [.00001, 100],
         'tau_rel': [.00001, 50],
         'tau_rel_trunc': [.00001, 100],
         'tau_unif': [.001, 300],
@@ -27,12 +28,15 @@ PARS = {'theta': [.1, 300],
         'w_loss': [0., 10],
         's': [0, 30],
         'sc': [0, 2],
-        'sc2': [0, 10],
+        'sc2': [0, 5],
         'sc0': [0, 10],
+        'sc_mean': [0, 2],
+        'sc2_mean': [0, 5],
+        'sc_x': [0, 20],
         'r': [0, .1],
         'c': [0, 100],
-        'c_0': [-10, 20],
-        'c_sigma': [0, 250],
+        'c_0': [-10, 100],
+        'c_sigma': [0, 100],
         }
 
 
@@ -147,10 +151,12 @@ def best_result(name, fixed={}, fitting=[], outdir='.', nopars=False, opt='nllh'
             return fitdf.ix[0]
 
 
-def predict_from_result(model, problems, data, name, fixed={}, fitting=[], groups=None, outdir='.',
+def predict_from_result(model, problems, fitdata, name, fixed={}, fitting=[], groups=None, outdir='.',
                         max_T=300, N=1000):
 
     start = time()
+
+    data = deepcopy(fitdata)
 
     # load the best result
     best = best_result(name, fixed, fitting, outdir=outdir)

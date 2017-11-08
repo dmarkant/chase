@@ -17,6 +17,7 @@ class CHASEProcessModel(object):
         self.problems = kwargs.get('problems', None)
         self.problemtype = kwargs.get('problemtype', 'multinomial')
         self.stoprule = kwargs.get('stoprule', 'optional')
+        self.choicerule = kwargs.get('choicerule', None)
 
         # setup options for weighting functions
         if self.problemtype is 'multinomial' and self.problems is not None:
@@ -87,6 +88,7 @@ class CHASEProcessModel(object):
             V = v.sum(axis=1)
             evar = np.array([np.dot(weights[i], values[i] ** 2) - np.sum(v[i]) ** 2 for i in range(len(options))])
             sigma2 = np.max([np.sum(evar), 1e-10])
+            sigma2mean = np.max([np.mean(evar), 1e-10])
 
             # sequential weights
             omega = []
@@ -108,6 +110,7 @@ class CHASEProcessModel(object):
             else:
                 evar = options[:,1]
                 sigma2 = options[:,1].sum()
+                sigma2mean = options[:,1].mean()
 
         # scale by variance
         if 'sc' in pars:
@@ -120,6 +123,14 @@ class CHASEProcessModel(object):
             variance_scale = 1 / float(np.sqrt(sigma2) * sc)
         elif 'sc0' in pars:
             sc0 = pars.get('sc0')
+        elif 'sc_mean' in pars:
+            sc = pars.get('sc_mean')
+            variance_scale = 1 / float(np.sqrt(sigma2mean) ** sc)
+        elif 'sc2_mean' in pars:
+            sc = pars.get('sc2_mean')
+            variance_scale = 1 / float(np.sqrt(sigma2mean) * sc)
+        elif 'sc_x' in pars:
+            variance_scale = pars.get('sc_x')
         else:
             variance_scale = 1
 
@@ -173,6 +184,14 @@ class CHASEProcessModel(object):
             tau = pars.get('tau_normal')
             Z = norm.rvs(loc=0, scale=tau, size=N)
 
+        elif 'tau_normal_trunc' in pars:
+            tau = pars.get('tau_normal_trunc')
+            dx = .001
+            x = np.arange(-(threshold-dx), threshold, dx)
+            p = norm.pdf(x, loc=0, scale=tau)
+            pn = p/p.sum()
+            Z = np.random.choice(x, N, p=pn)
+
 
         ### Simulate
 
@@ -204,6 +223,11 @@ class CHASEProcessModel(object):
             outcomes = np.tile(outcomes, (N, 1))
             sv = np.tile(sv, (N, 1))
 
+
+        elif self.choicerule == 'random':
+            sv = np.zeros((N, max_T))
+            sampled_option = None
+            outcomes = None
 
         else:
             # otherwise, simulate sampling from options
@@ -401,6 +425,7 @@ class CHASEProcessModel(object):
                     # fixed scaling factor across all options
                     sv = sv * variance_scale
 
+
                 # noise
                 if 'c_sigma' in pars:
                     c_sigma = pars.get('c_sigma')
@@ -414,17 +439,16 @@ class CHASEProcessModel(object):
 
                 sv = sv + err
 
-
         ### Accumulation
 
         # add starting states to first outcome
         sv[:,0] = sv[:,0] + Z
 
         # p_stay
-        p_stay = pars.get('p_stay', 0)
-        if p_stay > 0:
-            attended = np.random.binomial(1, 1-p_stay, size=(N, max_T))
-            sv = np.multiply(sv, attended)
+        #p_stay = pars.get('p_stay', 0)
+        #if p_stay > 0:
+        #    attended = np.random.binomial(1, 1-p_stay, size=(N, max_T))
+        #    sv = np.multiply(sv, attended)
 
 
         # accumulate
@@ -484,7 +508,6 @@ class CHASEProcessModel(object):
 
             indifferent = np.where(crossed[range(N),stop_T-1]==0)[0]
             n_indifferent = len(indifferent)
-            assert n_indifferent == 0, "reached stop with preference of 0"
             t_indifferent = (stop_T-1)[indifferent]
             crossed[indifferent,t_indifferent] = np.random.choice([-1,1], p=[.5,.5], size=n_indifferent)
 
@@ -635,7 +658,7 @@ class CHASEProcessModel(object):
             nllh = self.nloglik(problems, data, pars)
             v = np.round(value, 2)
             t = np.round(time() - start, 2)
-            print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
+            #print '%s --> %s\t[time: %s]' % (v, np.round(nllh, 1), t)
             return nllh
 
 
