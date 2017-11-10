@@ -7,21 +7,28 @@ CHASE recovery study.
 """
 import numpy as np
 import pandas as pd
-from recovery import *
 import itertools
 from process_model import CHASEProcessModel
-from process2_recovery import fit_simulated_data, fit_simulated_data_cpt
 from fit_process import best_result
+from recovery import *
 
-thetas = [1, 2, 3, 4, 5, 7, 9, 15]
-gammas = [.6, 1, 1.4]
-
-thetas = [5]
-gammas = [.6]
-
-N = 20
+N = 100
 #N_ITER = 50
 N_ITER = 10
+
+gen_pars = {'N': N,
+            'theta': None,
+            'prelec_gamma': None,
+            'minsamplesize': 2,
+            'switchfirst': True}
+
+
+thetas = [1, 2, 3, 4, 5, 7, 9, 15]
+gammas = [.6, .8, 1, 1.2, 1.4]
+
+thetas = [1, 5, 15]
+gammas = [.8, 1, 1.2]
+
 
 def generate_data(problems_id, problems, iteration=None):
 
@@ -31,18 +38,10 @@ def generate_data(problems_id, problems, iteration=None):
                               startdist='indifferent')
 
     gen_name = get_id('process', problems_id)
-    #N = get_N(problems)
 
     for theta, prelec_gamma in itertools.product(thetas, gammas):
         print theta, prelec_gamma
-        gen_pars = {'N': N,
-                    'theta': theta,
-                    'prelec_gamma': prelec_gamma,
-                    'minsamplesize': 2,
-                    'pref_units': 'diffs',
-                    'scale_threshold': False,
-                    'switchfirst': True}
-
+        gen_pars.update({'theta': theta, 'prelec_gamma': prelec_gamma})
         simulate_data(gen_name, model, problems, gen_pars,
                       iteration=iteration, relfreq=True)
 
@@ -64,23 +63,16 @@ def fit_cpt(problems_id, problems, relfreq=False, force=False,
     #fitting = ['s']
 
     for theta, prelec_gamma in itertools.product(thetas, gammas):
-
-        gen_pars = {'N': N,
-                    'theta': theta,
-                    'prelec_gamma': prelec_gamma,
-                    'minsamplesize': 2,
-                    'pref_units': 'diffs',
-                    'scale_threshold': False,
-                    'switchfirst': True}
-
+        print theta, prelec_gamma
+        gen_pars.update({'theta': theta, 'prelec_gamma': prelec_gamma})
         fixed['gen_theta'] = theta
         fixed['gen_prelec_gamma'] = prelec_gamma
 
-        print theta, prelec_gamma
 
-
-        data, best, pred = fit_simulated_data_cpt(gen_name, problems, gen_pars, fitting, fixed,
-                                                  iteration=iteration, fit_iterations=N_FIT_ITER,
+        data, best, pred = fit_simulated_data_cpt(gen_name, problems, gen_pars,
+                                                  fitting, fixed,
+                                                  iteration=iteration,
+                                                  fit_iterations=N_FIT_ITER,
                                                   relfreq=relfreq, force=force)
 
 
@@ -197,7 +189,7 @@ if __name__=='__main__':
         for iteration in range(N_ITER):
 
             #for problems_id in ['sixproblems', 'tpt', 'glockner']:
-            for problems_id in ['sixproblems']:
+            for problems_id in ['glockner']:
                 problems = load_problem_set(problems_id)
 
                 generate_data(problems_id, problems, iteration=iteration)
@@ -205,7 +197,7 @@ if __name__=='__main__':
                 #fit_cpt(problems_id, problems, relfreq=True, force=True, iteration=iteration, N_FIT_ITER=2)
                 #fit_chase(problems_id, problems, force=True, N_FIT_ITER=1)
 
-    if False:
-        for problems_id in ['sixproblems']:
+    if True:
+        for problems_id in ['glockner']:
             compile(problems_id, 'cpt')
             #compile(problems_id, 'cpt_rf')

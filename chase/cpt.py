@@ -42,8 +42,13 @@ def w_prelec(p, delta, gamma):
     # truncate at [0, 1]
     return np.clip(f, 0, 1)
 
-# derivative of weighting function
 def w_prime(p, delta, gamma):
+    """Derivative of Prelec weighting function
+
+    p:      array of probabilities
+    delta:  elevation parameter
+    gamma:  curvature parameter
+    """
     return (delta*gamma/p) * ((-np.log(p)) ** (gamma - 1)) * w_prelec(p, delta, gamma)
 
 
@@ -179,11 +184,8 @@ def choice_prob(options, pars, problemid=None, use_cache=False):
     global cached_options, cached_values
 
     options_str = np.array_str(options)
-
     if options_str in cached_values and use_cache:
-
         cp = cached_values[options_str]
-
     else:
 
         s = pars.get('s', 1.) # choice sensitivity
@@ -218,35 +220,16 @@ def MSD(value, problems, data, args):
     pars, fitting, verbose = unpack(value, args)
     if outside_bounds(value, fitting): return np.inf
     observed = data.groupby('problem').apply(lambda d: d.choice.mean()).values
-
-
-    #print observed
-
-    #pars['prelec_gamma'] = .6
-
-    #start = time()
     predicted = np.array([choice_prob(problems[k], pars, problemid=k) for k in problems])
     msd = np.mean((predicted - observed) ** 2)
-
-    #print 'gamma=.6: ', np.round(predicted, 3), msd
-
-    #pars['prelec_gamma'] = .1
-    #predicted = np.array([choice_prob(problems[k], pars, problemid=k) for k in problems])
-    #msd = np.mean((predicted - observed) ** 2)
-
-    #print 'gamma=.1: ', np.round(predicted, 3), msd
-
-    #print dummy
-
-
-    print value, msd
-    print np.round(observed, 3) - np.round(predicted, 3)
     return msd
 
 
 def fit_msd(problems, data, name, fixed={}, fitting={}, niter=1, outdir='.'):
     """Use maximum likelihood to fit CPT choice model"""
     global cached_options
+    # setup dataframes in advance
+    cached_options = setup(problems)
     sim_id = sim_id_str(name, fixed, fitting)
     print sim_id
     checkpath(outdir)
@@ -265,10 +248,6 @@ def fit_msd(problems, data, name, fixed={}, fitting={}, niter=1, outdir='.'):
     for i in range(niter):
         arr.append([i, np.nan, k, N, np.nan] + [np.nan for _ in range(k)])
     fitdf = pd.DataFrame(arr, columns=cols)
-
-
-    # setup dataframes in advance
-    cached_options = setup(problems)
 
 
     # iterate through
@@ -306,15 +285,14 @@ def nloglik_across_gambles(value, problems, data, args):
     else:
 
         pids = data.problem.unique()
-        predicted = {pid: choice_prob(problems[pid], pars) for pid in problems if pid in pids}
 
+        predicted = {pid: choice_prob(problems[pid], pars) for pid in problems if pid in pids}
         cp = np.array([predicted[pid] for pid in data.problem.values])
         choice = data.choice.values
-
         llh = np.sum(np.log(pfix(cp[choice==1]))) + \
               np.sum(np.log(pfix(1-cp[choice==0])))
 
-        print value, -llh
+        #print value, -llh
         return -llh
 
 
@@ -336,6 +314,9 @@ def fit_llh(data, fixed={}, fitting=[]):
 
 def fit(problems, data, name, fixed={}, fitting={}, niter=1, outdir='.', opt='llh'):
     """Use maximum likelihood to fit CPT model"""
+    global cached_options
+    # setup dataframes in advance
+    cached_options = setup(problems)
     sim_id = sim_id_str(name, fixed, fitting)
     print sim_id
     checkpath(outdir)
