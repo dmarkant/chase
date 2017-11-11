@@ -1,0 +1,2 @@
+,iteration,success,nllh,k,N,bic,pow_gain,prelec_elevation,prelec_elevation_loss,prelec_gamma,prelec_gamma_loss,tau,theta
+0,0,True,1339.68974912,7,1,2679.37949823,0.775360687638,0.997261820705,0.862286123847,0.816049573292,0.973433920808,0.998684772395,2.19053357049

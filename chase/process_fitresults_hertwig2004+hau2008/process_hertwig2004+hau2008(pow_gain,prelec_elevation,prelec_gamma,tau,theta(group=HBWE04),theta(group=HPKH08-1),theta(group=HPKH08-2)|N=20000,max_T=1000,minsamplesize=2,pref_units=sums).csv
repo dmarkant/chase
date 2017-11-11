@@ -1,0 +1,2 @@
+,iteration,success,nllh,k,N,bic,pow_gain,prelec_elevation,prelec_gamma,tau,theta(group=HBWE04),theta(group=HPKH08-1),theta(group=HPKH08-2)
+0,0,True,2916.93041046,7,614,5878.80078542,0.170949077355,0.446623196089,0.825303175197,99.5326381835,7.07734596751,5.67756556034,11.1656658633
