@@ -1,0 +1,4 @@
+,problem,iteration,gen_N,gen_cp,gen_ss_mn,gen_theta,gen_p_stay,gen_tau,gen_prelec_gamma,bf_cp,bf_ss_mn,bf_theta,bf_p_stay,bf_tau,bf_prelec_gamma
+0,,,,,,1,0,0.001,,,,1,,,
+1,,,,,,2,0,0.001,,,,2,,,
+2,,,,,,3,0,0.001,,,,2,,,
