@@ -10,7 +10,7 @@ from scipy.stats.mstats import mquantiles
 from time import time
 
 
-PARS = {'theta': [.1, 150],
+PARS = {'theta': [.1, 400],
         'p_stop_geom': [0, 1],
         'tau': [.00001, 200],
         'tau_trunc': [.00001, 100],
