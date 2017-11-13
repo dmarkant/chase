@@ -126,9 +126,8 @@ def load_results(name, fixed={}, fitting=[], outdir='.'):
     sim_id = sim_id_str(name, fixed, fitting)
     pth = '%s/%s.csv' % (outdir, sim_id)
     if os.path.exists(pth):
-        return pd.read_csv('%s/%s.csv' % (outdir, sim_id))
-    else:
-        return []
+        return pd.read_csv(pth)
+    return []
 
 
 def best_result(name, fixed={}, fitting=[], outdir='.', nopars=False, opt='nllh'):

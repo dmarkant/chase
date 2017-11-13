@@ -546,11 +546,11 @@ class CHASEProcessModel(object):
 
             p_stop_A = np.zeros(max_T)
             p_stop_B = np.zeros(max_T)
+            p_stop_A_f = np.bincount(ss_A, minlength=max_T)
+            p_stop_B_f = np.bincount(ss_B, minlength=max_T)
             if self.stoprule == 'optional' or self.stoprule == 'fixedGeom':
-                p_stop_A_f = np.bincount(ss_A, minlength=max_T)
                 if p_stop_A_f.sum() > 0:
                     p_stop_A = p_stop_A_f/float(p_stop_A_f.sum())
-                p_stop_B_f = np.bincount(ss_B, minlength=max_T)
                 if p_stop_B_f.sum() > 0:
                     p_stop_B = p_stop_B_f/float(p_stop_B_f.sum())
 
