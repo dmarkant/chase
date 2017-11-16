@@ -42,6 +42,7 @@ def w_prelec(p, delta, gamma):
     # truncate at [0, 1]
     return np.clip(f, 0, 1)
 
+
 def w_prime(p, delta, gamma):
     """Derivative of Prelec weighting function
 
@@ -86,7 +87,6 @@ def rank_outcomes_by_domain(option):
 def pweight_prelec(option, pars):
     prelec_elevation = pars.get('prelec_elevation', 1.)
     prelec_gamma = pars.get('prelec_gamma', 1.)
-
     prelec_elevation_loss = pars.get('prelec_elevation_loss', prelec_elevation)
     prelec_gamma_loss = pars.get('prelec_gamma_loss', prelec_gamma)
 
@@ -111,6 +111,13 @@ def pweight_prelec(option, pars):
         wr = w_prelec(r, prelec_elevation_loss, prelec_gamma_loss)
         wrd = np.ediff1d(wr)
         lossdf.w = wrd
+
+    print q
+    print r
+    print wr
+    print wrd
+
+
 
     # put ranked weights back in original order
     weights = np.zeros(n_gains + n_losses)
@@ -203,7 +210,7 @@ def choice_prob(options, pars, problemid=None, use_cache=False):
             values = options[:,:,0]
 
         vL, vH = [np.dot(w, v) for (w, v) in zip(weights, values)]
-        cp = 1/(1. + np.exp(s * (vL - vH)))
+        cp = 1/(1. + np.exp(-s * (vH - vL)))
         assert not np.isnan(cp)
 
         cached_values[options_str] = cp
