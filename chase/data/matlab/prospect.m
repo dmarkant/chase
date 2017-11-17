@@ -13,22 +13,33 @@ beta = 1; %utility for losses
 lambda =1;%loss aversion
 delta = 1;%height for weight function
 
-uLx0 = utility( tbl.Lx0, alpha,beta,lambda  );
-uLx1 = utility( tbl.Lx1, alpha,beta,lambda );
-uHx0 = utility( tbl.Hx0, alpha,beta,lambda  );
-uHx1 = utility( tbl.Hx1, alpha,beta,lambda );
+wLow = zeros(height(tbl),2);
+wHigh = zeros(height(tbl),2);
+xLow = zeros(height(tbl),2);
+xHigh = zeros(height(tbl),2);
 
-lowOutcomes = [tbl.Lx0 tbl.Lx1];
-highOutcomes = [tbl.Hx0 tbl.Hx1];
+for i = 1:height(tbl)
+    [wLow(i,:), xLow(i,:)] = prelec([tbl.Lp0(i) tbl.Lp1(i)],[tbl.Lx0(i) tbl.Lx1(i)],gamma,delta);
+    [wHigh(i,:), xHigh(i,:)]  = prelec([tbl.Hp0(i) tbl.Hp1(i)],[tbl.Hx0(i) tbl.Hx1(i)],gamma,delta);
+end
 
-lowProb = [tbl.Lp0 tbl.Lp1];
-highProb = [tbl.Hp0 tbl.Hp1];
+uLow = zeros(height(tbl),2);
+uHigh = zeros(height(tbl),2);
 
-wLow = prelec(lowProb,gamma,delta);
-wHigh = prelec(highProb,gamma,delta);
+uLow= utility( xLow, alpha,beta,lambda  );
+uHigh = utility( xHigh, alpha,beta,lambda );
 
-prospectLow = wLow(1).*uLx0 +  wLow(2).*uLx1;
-prospectHigh = wHigh(1).*uHx0 +  wHigh(2).*uHx1;
+%lowOutcomes = [tbl.Lx0 tbl.Lx1];
+%highOutcomes = [tbl.Hx0 tbl.Hx1];
+
+%lowProb = [tbl.Lp0 tbl.Lp1];
+%highProb = [tbl.Hp0 tbl.Hp1];
+
+%wLow = prelec(lowProb,gamma,delta);
+%wHigh = prelec(highProb,gamma,delta);
+
+prospectLow = sum(wLow.*uLow,2);
+prospectHigh = sum(wHigh.*uHigh,2);
 
 probChooseH = 1./(1+exp( -beta.*( prospectHigh - prospectLow ) ) ); 
 

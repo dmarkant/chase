@@ -2,34 +2,45 @@ function logLike = prospectRF(xin, tbl, bounder, bounds)
 %power_mle the log-likelihood function of the power model
 if (bounder)
    gamma = parameter_bounder(xin(1), 1, bounds.gamma); 
-   theta = parameter_bounder(xin(2), 1, bounds.theta); 
+   beta = parameter_bounder(xin(2), 1, bounds.theta); 
 else
     gamma = xin(1);
-    theta = xin(2); 
-end;
+    beta = xin(2); 
+end
 
 alpha = 1;%utility for gains
 beta = 1; %utility for losses
 lambda =1;%loss aversion
 delta = 1;%height for weight function
 
-uLx0 = utility( tbl.Lx0, alpha,beta,lambda  );
-uLx1 = utility( tbl.Lx1, alpha,beta,lambda );
-uHx0 = utility( tbl.Hx0, alpha,beta,lambda  );
-uHx1 = utility( tbl.Hx1, alpha,beta,lambda );
+wLow = zeros(height(tbl),2);
+wHigh = zeros(height(tbl),2);
+xLow = zeros(height(tbl),2);
+xHigh = zeros(height(tbl),2);
 
-lowOutcomes = [tbl.Lx0 tbl.Lx1];
-highOutcomes = [tbl.Hx0 tbl.Hx1];
+for i = 1:height(tbl)
+    [wLow(i,:), xLow(i,:)] = prelec([tbl.Lf0(i) tbl.Lf1(i)],[tbl.Lx0(i) tbl.Lx1(i)],gamma,delta);
+    [wHigh(i,:), xHigh(i,:)]  = prelec([tbl.Hf0(i) tbl.Hf1(i)],[tbl.Hx0(i) tbl.Hx1(i)],gamma,delta);
+end
 
-lowProb = [tbl.Lf0 tbl.Lf1];
-highProb = [tbl.Hf0 tbl.Hf1];
+uLow = zeros(height(tbl),2);
+uHigh = zeros(height(tbl),2);
 
-wLow = prelec(lowProb,gamma,delta);
-wHigh = prelec(highProb,gamma,delta);
+uLow= utility( xLow, alpha,beta,lambda  );
+uHigh = utility( xHigh, alpha,beta,lambda );
 
-prospectLow = wLow(1).*uLx0 +  wLow(2).*uLx1;
-prospectHigh = wHigh(1).*uHx0 +  wHigh(2).*uHx1;
+%lowOutcomes = [tbl.Lx0 tbl.Lx1];
+%highOutcomes = [tbl.Hx0 tbl.Hx1];
 
-probChooseH = 1./(1+exp( -theta.*( prospectHigh - prospectLow ) ) ); 
+%lowProb = [tbl.Lp0 tbl.Lp1];
+%highProb = [tbl.Hp0 tbl.Hp1];
+
+%wLow = prelec(lowProb,gamma,delta);
+%wHigh = prelec(highProb,gamma,delta);
+
+prospectLow = sum(wLow.*uLow,2);
+prospectHigh = sum(wHigh.*uHigh,2);
+
+probChooseH = 1./(1+exp( -beta.*( prospectHigh - prospectLow ) ) ); 
 
 logLike = -1.*sum(tbl.choice.*log(probChooseH) + (1-tbl.choice).*log(1-probChooseH)); 

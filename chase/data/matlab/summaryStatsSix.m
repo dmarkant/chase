@@ -27,7 +27,7 @@ for l = 1:(length(listing)-2)
         quant1Sample(i) = quantile( tbl.samplesize(tbl.problem==uniqueProblems(i)), .25 ); 
         quant2Sample(i) = quantile( tbl.samplesize(tbl.problem==uniqueProblems(i)), .50 ); 
         quant3Sample(i) = quantile( tbl.samplesize(tbl.problem==uniqueProblems(i)), .75 ); 
-    end;
+    end
     
     [gammaOut, thetaOut] = prospect_mle_fminsearch(tbl);
     pars(l,:) = [gammaOut,thetaOut];
@@ -69,29 +69,30 @@ figure
 subplot(2,2,1)
 plot(uniqueThetaSim,meanGammaEst);
 axis square
-ylabel('\gamma','FontSize',24)
-xlabel('\theta','FontSize',24)
+ylabel('Overweighting \leftarrow \gamma \rightarrow Underweighting','FontSize',24)
+xlabel('Threshold \theta','FontSize',24)
 legend('\gamma = .6','\gamma = 1.0','\gamma = 1.4','Location','northwest')
+title('Objective Probabilities','FontSize',24)
 
 subplot(2,2,2)
 plot(uniqueThetaSim,meanGammaRFEst);
 axis square
-ylabel('\gamma','FontSize',24)
-xlabel('\theta','FontSize',24)
-
+ylabel('Overweighting \leftarrow \gamma \rightarrow Underweighting ','FontSize',24)
+xlabel('Threshold \theta','FontSize',24)
+title('Relative Frequencies','FontSize',24)
 
 subplot(2,2,3)
 plot(uniqueThetaSim,meanBetaEst);
 axis square
-ylabel('\beta','FontSize',24)
-xlabel('\theta','FontSize',24)
+ylabel('Response Consistency \beta','FontSize',24)
+xlabel('Threshold \theta','FontSize',24)
 legend('\gamma = .6','\gamma = 1.0','\gamma = 1.4','Location','northwest')
 
 subplot(2,2,4)
 plot(uniqueThetaSim,meanBetaRFEst);
 axis square
-ylabel('\beta','FontSize',24)
-xlabel('\theta','FontSize',24)
+ylabel('Response Consistency \beta','FontSize',24)
+xlabel('Threshold \theta','FontSize',24)
 
 savefig('SixProblems.fig')
 saveas(gcf,'SixProblems.png','png')
